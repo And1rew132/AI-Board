@@ -3,81 +3,202 @@
     <UICard variant="elevated" class="page-header">
       <template #header>
         <div class="header-content">
-          <UIButton @click="$router.back()" variant="ghost" size="sm">
-            ← Back
-          </UIButton>
-          <h1>Agent Manager</h1>
-          <UIButton @click="showCreateDialog = true">
-            New Agent
-          </UIButton>
+          <div class="header-navigation">
+            <UIButton @click="$router.back()" variant="ghost" size="sm" class="back-button">
+              <span class="back-icon">←</span>
+              <span>Back</span>
+            </UIButton>
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+              <ol class="breadcrumb-list">
+                <li><router-link to="/" class="breadcrumb-link">Home</router-link></li>
+                <li><span class="breadcrumb-separator">/</span></li>
+                <li><span class="breadcrumb-current" aria-current="page">Agent Manager</span></li>
+              </ol>
+            </nav>
+          </div>
+          <div class="header-title-section">
+            <h1 class="page-title">
+              <span class="title-icon">🤖</span>
+              Agent Manager
+            </h1>
+            <p class="page-description">Create, configure, and manage your AI agents</p>
+          </div>
+          <div class="header-actions">
+            <UIButton @click="showCreateDialog = true" size="lg" class="primary-action">
+              <span class="action-icon">+</span>
+              New Agent
+            </UIButton>
+          </div>
         </div>
       </template>
     </UICard>
 
-    <UICard variant="elevated" class="agent-content">
+    <UICard variant="elevated" class="agent-content" v-if="agentStore.agents.length > 0">
+      <template #header>
+        <div class="agents-section-header">
+          <div class="section-title">
+            <h2>Your Agents</h2>
+            <UIBadge variant="primary" size="sm">{{ agentStore.agents.length }} Active</UIBadge>
+          </div>
+          <div class="section-filters">
+            <UISelect v-model="statusFilter" class="filter-select">
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="idle">Idle</option>
+              <option value="offline">Offline</option>
+            </UISelect>
+          </div>
+        </div>
+      </template>
+      
       <div class="agents-grid">
         <UICard 
-          v-for="agent in agentStore.agents" 
+          v-for="agent in filteredAgents" 
           :key="agent.id"
           variant="outlined"
           class="agent-card"
+          :class="{ 'agent-card--featured': agent.status === 'active' }"
         >
           <template #header>
             <div class="agent-header">
-              <h3>{{ agent.name }}</h3>
-              <UIBadge :variant="getStatusVariant(agent.status)">
-                {{ agent.status }}
-              </UIBadge>
+              <div class="agent-title-section">
+                <div class="agent-avatar" :class="`agent-avatar--${agent.type}`">
+                  <span class="avatar-emoji">{{ getAgentEmoji(agent.type) }}</span>
+                </div>
+                <div class="agent-name-section">
+                  <h3 class="agent-name">{{ agent.name }}</h3>
+                  <span class="agent-type">{{ formatAgentType(agent.type) }}</span>
+                </div>
+              </div>
+              <div class="agent-status-section">
+                <UIBadge 
+                  :variant="getStatusVariant(agent.status)" 
+                  class="status-badge"
+                  :class="`status-badge--${agent.status}`"
+                >
+                  <span class="status-indicator"></span>
+                  {{ formatStatus(agent.status) }}
+                </UIBadge>
+              </div>
             </div>
           </template>
           
-          <p class="agent-description">{{ agent.description }}</p>
-          
-          <UIInfoGrid :items="[
-            { label: 'Type', value: agent.type },
-            { label: 'Projects', value: agent.projects.length.toString() },
-            { label: 'Last Activity', value: formatDate(agent.lastActivity) }
-          ]" class="agent-details" />
-          
-          <div class="capabilities">
-            <h4>Capabilities:</h4>
-            <div class="capability-tags">
-              <UIBadge
-                v-for="capability in agent.capabilities.filter(c => c.enabled)" 
-                :key="capability.type"
-                variant="success"
-                size="sm"
-              >
-                {{ capability.type.replace('_', ' ') }}
-              </UIBadge>
+          <div class="agent-content-body">
+            <p class="agent-description">{{ agent.description }}</p>
+            
+            <div class="agent-metrics">
+              <div class="metric-item">
+                <span class="metric-icon">📊</span>
+                <div class="metric-content">
+                  <span class="metric-label">Projects</span>
+                  <span class="metric-value">{{ agent.projects.length }}</span>
+                </div>
+              </div>
+              <div class="metric-item">
+                <span class="metric-icon">⚙️</span>
+                <div class="metric-content">
+                  <span class="metric-label">Autonomy</span>
+                  <span class="metric-value">{{ formatAutonomy(agent.config.autonomyLevel) }}</span>
+                </div>
+              </div>
+              <div class="metric-item">
+                <span class="metric-icon">🕒</span>
+                <div class="metric-content">
+                  <span class="metric-label">Last Active</span>
+                  <span class="metric-value">{{ formatRelativeTime(agent.lastActivity) }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="capabilities-section">
+              <h4 class="capabilities-title">Capabilities</h4>
+              <div class="capability-tags">
+                <UIBadge
+                  v-for="capability in agent.capabilities.filter(c => c.enabled).slice(0, 3)" 
+                  :key="capability.type"
+                  variant="success"
+                  size="sm"
+                  class="capability-badge"
+                >
+                  <span class="capability-icon">{{ getCapabilityIcon(capability.type) }}</span>
+                  {{ formatCapability(capability.type) }}
+                </UIBadge>
+                <UIBadge
+                  v-if="agent.capabilities.filter(c => c.enabled).length > 3"
+                  variant="gray"
+                  size="sm"
+                  class="capability-badge capability-badge--more"
+                >
+                  +{{ agent.capabilities.filter(c => c.enabled).length - 3 }} more
+                </UIBadge>
+              </div>
             </div>
           </div>
           
           <template #footer>
             <div class="agent-actions">
-              <UIButton @click="editAgent(agent)" variant="secondary" size="sm">
-                Edit
-              </UIButton>
-              <UIButton @click="deleteAgent(agent.id)" variant="danger" size="sm">
-                Delete
-              </UIButton>
+              <div class="action-group action-group--primary">
+                <UIButton @click="editAgent(agent)" variant="secondary" size="sm" class="action-button">
+                  <span class="action-icon">✏️</span>
+                  Edit
+                </UIButton>
+                <UIButton 
+                  @click="toggleAgentStatus(agent)" 
+                  :variant="agent.status === 'active' ? 'warning' : 'success'" 
+                  size="sm" 
+                  class="action-button"
+                >
+                  <span class="action-icon">{{ agent.status === 'active' ? '⏸️' : '▶️' }}</span>
+                  {{ agent.status === 'active' ? 'Pause' : 'Activate' }}
+                </UIButton>
+              </div>
+              <div class="action-group action-group--secondary">
+                <UIButton @click="deleteAgent(agent.id)" variant="danger" size="sm" class="action-button action-button--danger">
+                  <span class="action-icon">🗑️</span>
+                  Delete
+                </UIButton>
+              </div>
             </div>
           </template>
         </UICard>
       </div>
-
       <div v-if="agentStore.agents.length === 0" class="empty-state">
         <div class="empty-state-content">
-          <div class="empty-state-icon">🤖</div>
-          <h3>Welcome to Agent Management</h3>
-          <p>Create your first AI agent to start automating tasks and workflows.</p>
+          <div class="empty-state-visual">
+            <div class="empty-state-icon">🤖</div>
+            <div class="empty-state-animation"></div>
+          </div>
+          <div class="empty-state-text">
+            <h3 class="empty-state-title">Welcome to Agent Management</h3>
+            <p class="empty-state-description">
+              Create your first AI agent to start automating tasks and workflows. 
+              Choose from our pre-built templates or create a custom agent tailored to your needs.
+            </p>
+          </div>
           <div class="empty-state-actions">
-            <UIButton @click="showCreateDialog = true" size="lg">
+            <UIButton @click="showCreateDialog = true" size="lg" class="primary-action">
+              <span class="action-icon">✨</span>
               Create Your First Agent
             </UIButton>
             <p class="empty-state-hint">
-              Or choose from our templates below to get started quickly
+              Or choose from our <a href="#templates" class="hint-link">templates below</a> to get started quickly
             </p>
+          </div>
+          <div class="empty-state-features">
+            <div class="feature-list">
+              <div class="feature-item">
+                <span class="feature-icon">🚀</span>
+                <span class="feature-text">Automated task execution</span>
+              </div>
+              <div class="feature-item">
+                <span class="feature-icon">🔗</span>
+                <span class="feature-text">API integrations</span>
+              </div>
+              <div class="feature-item">
+                <span class="feature-icon">📊</span>
+                <span class="feature-text">Performance monitoring</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -195,11 +316,22 @@
     </UIModal>
 
     <!-- Agent Templates & AI Generator -->
-    <UICard variant="elevated" class="agent-templates">
+    <UICard variant="elevated" class="agent-templates" id="templates">
       <template #header>
         <div class="templates-header">
-          <h2>Agent Templates</h2>
-          <p class="templates-subtitle">Choose a pre-configured template to get started quickly</p>
+          <div class="templates-title-section">
+            <h2 class="templates-title">
+              <span class="title-icon">📋</span>
+              Agent Templates
+            </h2>
+            <p class="templates-subtitle">Choose a pre-configured template to get started quickly</p>
+          </div>
+          <div class="templates-actions">
+            <UIButton @click="showAIGenerator = true" variant="success" size="sm" class="ai-generator-quick-btn">
+              <span class="action-icon">✨</span>
+              AI Generate
+            </UIButton>
+          </div>
         </div>
       </template>
       
@@ -209,46 +341,90 @@
           :key="template.id"
           variant="outlined"
           class="template-card"
+          :class="`template-card--${template.type}`"
           @click="selectTemplate(template)"
         >
           <template #header>
             <div class="template-header">
-              <div class="template-icon">{{ getTemplateIcon(template.id) }}</div>
-              <h3>{{ template.name }}</h3>
-              <UIBadge :variant="getTemplateVariant(template.type)" size="sm">
-                {{ template.type }}
-              </UIBadge>
+              <div class="template-icon-section">
+                <div class="template-icon" :class="`template-icon--${template.type}`">
+                  {{ getTemplateIcon(template.id) }}
+                </div>
+                <div class="template-type-badge">
+                  <UIBadge :variant="getTemplateVariant(template.type)" size="sm">
+                    {{ formatTemplateType(template.type) }}
+                  </UIBadge>
+                </div>
+              </div>
+              <div class="template-title-section">
+                <h3 class="template-name">{{ template.name }}</h3>
+                <div class="template-stats">
+                  <span class="stat-item">
+                    <span class="stat-icon">⚙️</span>
+                    {{ template.config.autonomyLevel }}
+                  </span>
+                  <span class="stat-item">
+                    <span class="stat-icon">🔄</span>
+                    {{ template.runInterval }}s
+                  </span>
+                </div>
+              </div>
             </div>
           </template>
           
-          <p class="template-description">{{ template.description }}</p>
-          
-          <div class="template-features">
-            <h4>Key Capabilities:</h4>
-            <div class="capability-list">
-              <UIBadge
-                v-for="capability in template.capabilities" 
-                :key="capability.type"
-                variant="success"
-                size="sm"
-              >
-                {{ formatCapability(capability.type) }}
-              </UIBadge>
+          <div class="template-content">
+            <p class="template-description">{{ template.description }}</p>
+            
+            <div class="template-capabilities">
+              <h4 class="capabilities-title">
+                <span class="title-icon">🎯</span>
+                Key Capabilities
+              </h4>
+              <div class="capability-list">
+                <UIBadge
+                  v-for="capability in template.capabilities.slice(0, 2)" 
+                  :key="capability.type"
+                  variant="success"
+                  size="sm"
+                  class="capability-badge"
+                >
+                  <span class="capability-icon">{{ getCapabilityIcon(capability.type) }}</span>
+                  {{ formatCapability(capability.type) }}
+                </UIBadge>
+                <UIBadge
+                  v-if="template.capabilities.length > 2"
+                  variant="gray"
+                  size="sm"
+                  class="capability-badge capability-badge--more"
+                >
+                  +{{ template.capabilities.length - 2 }}
+                </UIBadge>
+              </div>
+            </div>
+            
+            <div class="template-config-preview">
+              <div class="config-item">
+                <span class="config-label">Strategy:</span>
+                <span class="config-value">{{ formatStrategy(template.config.promptingStrategy) }}</span>
+              </div>
+              <div class="config-item">
+                <span class="config-label">Run Interval:</span>
+                <span class="config-value">{{ template.runInterval }}s</span>
+              </div>
             </div>
           </div>
           
-          <div class="template-config">
-            <UIInfoGrid :items="[
-              { label: 'Autonomy', value: template.config.autonomyLevel },
-              { label: 'Strategy', value: formatStrategy(template.config.promptingStrategy) },
-              { label: 'Interval', value: `${template.runInterval}s` }
-            ]" />
-          </div>
-          
           <template #footer>
-            <UIButton @click.stop="selectTemplate(template)" class="template-select-btn">
-              Create Agent
-            </UIButton>
+            <div class="template-footer">
+              <UIButton @click.stop="selectTemplate(template)" class="template-select-btn" variant="primary">
+                <span class="action-icon">🚀</span>
+                Create Agent
+              </UIButton>
+              <UIButton @click.stop="previewTemplate(template)" variant="ghost" size="sm" class="template-preview-btn">
+                <span class="action-icon">👁️</span>
+                Preview
+              </UIButton>
+            </div>
           </template>
         </UICard>
       </div>
@@ -306,7 +482,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useAgentStore } from '@/stores/agents'
-import { UIButton, UICard, UIModal, UIInput, UITextarea, UISelect, UIBadge, UIInfoGrid } from '@/ui'
+import { UIButton, UICard, UIModal, UIInput, UITextarea, UISelect, UIBadge } from '@/ui'
 import type { Agent, AgentCapability } from '@/types'
 
 const agentStore = useAgentStore()
@@ -317,6 +493,7 @@ const editingAgent = ref<Agent | null>(null)
 const agentPrompt = ref('')
 const aiAgentResult = ref('')
 const isGenerating = ref(false)
+const statusFilter = ref('all')
 
 const agentForm = reactive({
   name: '',
@@ -326,6 +503,13 @@ const agentForm = reactive({
   autonomyLevel: 'medium' as 'low' | 'medium' | 'high',
   promptingStrategy: 'goal_oriented' as 'goal_oriented' | 'task_driven' | 'exploratory',
   selectedCapabilities: [] as AgentCapability['type'][],
+})
+
+const filteredAgents = computed(() => {
+  if (statusFilter.value === 'all') {
+    return agentStore.agents
+  }
+  return agentStore.agents.filter(agent => agent.status === statusFilter.value)
 })
 
 const availableCapabilities: Array<{
@@ -378,20 +562,97 @@ function getStatusVariant(status: Agent['status']) {
   switch (status) {
     case 'active': return 'success'
     case 'idle': return 'warning'
+    case 'busy': return 'primary'
+    case 'error': return 'danger'
     case 'offline': return 'danger'
     default: return 'gray'
   }
 }
 
-function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+function formatStatus(status: Agent['status']): string {
+  switch (status) {
+    case 'active': return 'Active'
+    case 'idle': return 'Idle'
+    case 'busy': return 'Busy'
+    case 'error': return 'Error'
+    case 'offline': return 'Offline'
+    default: return status
+  }
 }
+
+function formatAgentType(type: Agent['type']): string {
+  switch (type) {
+    case 'autonomous': return 'Autonomous'
+    case 'reactive': return 'Reactive'
+    case 'collaborative': return 'Collaborative'
+    default: return type
+  }
+}
+
+function formatTemplateType(type: string): string {
+  switch (type) {
+    case 'autonomous': return 'Auto'
+    case 'reactive': return 'React'
+    case 'collaborative': return 'Collab'
+    default: return type
+  }
+}
+
+function getAgentEmoji(type: Agent['type']): string {
+  switch (type) {
+    case 'autonomous': return '🤖'
+    case 'reactive': return '⚡'
+    case 'collaborative': return '🤝'
+    default: return '🤖'
+  }
+}
+
+function formatAutonomy(level: string): string {
+  switch (level) {
+    case 'low': return 'Low'
+    case 'medium': return 'Medium'
+    case 'high': return 'High'
+    default: return level
+  }
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date()
+  const diff = now.getTime() - new Date(date).getTime()
+  const minutes = Math.floor(diff / (1000 * 60))
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  if (hours < 24) return `${hours}h ago`
+  return `${days}d ago`
+}
+
+function getCapabilityIcon(capability: string): string {
+  switch (capability) {
+    case 'code_generation': return '💻'
+    case 'content_creation': return '📝'
+    case 'file_management': return '📁'
+    case 'api_integration': return '🔌'
+    case 'analysis': return '📊'
+    case 'ai_generation': return '🤖'
+    case 'mcp_client': return '🌐'
+    default: return '⚙️'
+  }
+}
+
+function toggleAgentStatus(agent: Agent) {
+  const newStatus = agent.status === 'active' ? 'idle' : 'active'
+  agentStore.updateAgent(agent.id, { status: newStatus })
+}
+
+function previewTemplate(template: any) {
+  // TODO: Implement template preview modal
+  console.log('Preview template:', template)
+}
+
+
 
 function getTemplateIcon(templateId: string): string {
   switch (templateId) {
@@ -646,6 +907,114 @@ function addGeneratedAgent() {
 
 .header-content {
   display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  width: 100%;
+}
+
+.header-navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.back-icon {
+  font-size: var(--font-size-lg);
+}
+
+.breadcrumb {
+  flex: 1;
+}
+
+.breadcrumb-list {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.breadcrumb-link {
+  color: var(--color-gray-600);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: color 0.2s ease;
+}
+
+.breadcrumb-link:hover {
+  color: var(--color-primary);
+}
+
+.breadcrumb-separator {
+  color: var(--color-gray-400);
+  font-size: var(--font-size-sm);
+}
+
+.breadcrumb-current {
+  color: var(--color-gray-800);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.header-title-section {
+  text-align: center;
+  flex: 1;
+}
+
+.page-title {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.title-icon {
+  font-size: var(--font-size-2xl);
+}
+
+.page-description {
+  margin: var(--spacing-sm) 0 0 0;
+  color: var(--color-gray-600);
+  font-size: var(--font-size-base);
+}
+
+.header-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.primary-action {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.action-icon {
+  font-size: var(--font-size-lg);
+}
+
+.agent-content {
+  margin-bottom: var(--spacing-xl);
+}
+
+.agents-section-header {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -653,67 +1022,240 @@ function addGeneratedAgent() {
   width: 100%;
 }
 
-.header-content h1 {
-  margin: 0;
-  font-size: var(--font-size-2xl);
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  flex: 1;
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
 }
 
-.agent-content {
-  margin-bottom: var(--spacing-xl);
+.section-title h2 {
+  margin: 0;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-filters {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.filter-select {
+  min-width: 150px;
 }
 
 .agents-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: var(--spacing-xl);
 }
 
 .agent-card {
   transition: all 0.3s ease;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
 }
 
 .agent-card:hover {
   transform: translateY(-4px);
+  box-shadow: var(--shadow-xl, 0 10px 40px rgba(0, 0, 0, 0.15));
+}
+
+.agent-card--featured {
+  border-color: var(--color-success);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.02) 0%, rgba(16, 185, 129, 0.02) 100%);
+}
+
+.agent-card--featured::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-success) 0%, var(--color-success-dark) 100%);
 }
 
 .agent-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-md);
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
 }
 
-.agent-header h3 {
-  margin: 0;
+.agent-title-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex: 1;
+}
+
+.agent-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--border-radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xl);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  position: relative;
+}
+
+.agent-avatar--autonomous {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.agent-avatar--reactive {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.agent-avatar--collaborative {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.avatar-emoji {
+  font-size: var(--font-size-xl);
+}
+
+.agent-name-section {
+  flex: 1;
+}
+
+.agent-name {
+  margin: 0 0 var(--spacing-xs) 0;
   color: var(--color-gray-800);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+}
+
+.agent-type {
+  color: var(--color-gray-500);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.agent-status-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s infinite;
+}
+
+.status-badge--active .status-indicator {
+  background: var(--color-success);
+}
+
+.status-badge--idle .status-indicator {
+  background: var(--color-warning);
+}
+
+.status-badge--busy .status-indicator {
+  background: var(--color-primary);
+}
+
+.status-badge--error .status-indicator,
+.status-badge--offline .status-indicator {
+  background: var(--color-danger);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.agent-content-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
 }
 
 .agent-description {
   color: var(--color-gray-600);
-  margin-bottom: var(--spacing-lg);
   line-height: var(--line-height-relaxed);
+  margin: 0;
 }
 
-.agent-details {
-  margin-bottom: var(--spacing-lg);
+.agent-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-md);
 }
 
-.capabilities {
-  margin-bottom: var(--spacing-lg);
+.metric-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-gray-50);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-gray-200);
 }
 
-.capabilities h4 {
+.metric-icon {
+  font-size: var(--font-size-base);
+  opacity: 0.8;
+}
+
+.metric-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.metric-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.metric-value {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-800);
+  font-weight: var(--font-weight-semibold);
+  truncate: true;
+}
+
+.capabilities-section {
+  border-top: 1px solid var(--color-gray-200);
+  padding-top: var(--spacing-lg);
+}
+
+.capabilities-title {
   margin: 0 0 var(--spacing-md) 0;
   color: var(--color-gray-800);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .capability-tags {
@@ -722,10 +1264,50 @@ function addGeneratedAgent() {
   gap: var(--spacing-sm);
 }
 
+.capability-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+}
+
+.capability-badge--more {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.capability-icon {
+  font-size: var(--font-size-sm);
+}
+
 .agent-actions {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-gray-200);
+  margin-top: var(--spacing-lg);
+}
+
+.action-group {
+  display: flex;
   gap: var(--spacing-sm);
-  justify-content: flex-end;
+}
+
+.action-group--primary {
+  flex: 1;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.action-button--danger:hover {
+  transform: scale(1.05);
 }
 
 .no-agents {
@@ -739,39 +1321,108 @@ function addGeneratedAgent() {
 
 .empty-state {
   text-align: center;
-  padding: var(--spacing-5xl);
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  border-radius: var(--border-radius-xl);
+  padding: var(--spacing-5xl) var(--spacing-xl);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
+  border-radius: var(--border-radius-2xl);
   border: 2px dashed var(--color-gray-300);
+  position: relative;
+  overflow: hidden;
+}
+
+.empty-state::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(102, 126, 234, 0.05), transparent);
+  animation: shimmer 3s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
 }
 
 .empty-state-content {
+  max-width: 600px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.empty-state-visual {
+  position: relative;
+  margin-bottom: var(--spacing-xl);
+}
+
+.empty-state-icon {
+  font-size: 5rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.9;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.empty-state-animation {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  border: 3px solid var(--color-primary-light);
+  border-radius: 50%;
+  border-top-color: var(--color-primary);
+  animation: spin 4s linear infinite;
+  opacity: 0.3;
+}
+
+@keyframes spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.empty-state-text {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.empty-state-title {
+  margin: 0 0 var(--spacing-lg) 0;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.empty-state-description {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
   max-width: 500px;
   margin: 0 auto;
 }
 
-.empty-state-icon {
-  font-size: 4rem;
-  margin-bottom: var(--spacing-lg);
-  opacity: 0.8;
-}
-
-.empty-state h3 {
-  margin: 0 0 var(--spacing-md) 0;
-  color: var(--color-gray-800);
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-semibold);
-}
-
-.empty-state p {
-  color: var(--color-gray-600);
-  font-size: var(--font-size-lg);
-  margin-bottom: var(--spacing-xl);
-  line-height: var(--line-height-relaxed);
-}
-
 .empty-state-actions {
-  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-2xl);
 }
 
 .empty-state-hint {
@@ -779,6 +1430,57 @@ function addGeneratedAgent() {
   font-size: var(--font-size-sm);
   color: var(--color-gray-500);
   font-style: italic;
+}
+
+.hint-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  transition: color 0.2s ease;
+}
+
+.hint-link:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+.empty-state-features {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xl);
+  border: 1px solid var(--color-gray-200);
+}
+
+.feature-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-white);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  font-size: var(--font-size-xl);
+  flex-shrink: 0;
+}
+
+.feature-text {
+  color: var(--color-gray-700);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
 }
 
 .form-fields {
@@ -911,25 +1613,49 @@ function addGeneratedAgent() {
 }
 
 .templates-header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-lg);
+  width: 100%;
 }
 
-.templates-header h2 {
+.templates-title-section {
+  flex: 1;
+}
+
+.templates-title {
   margin: 0 0 var(--spacing-sm) 0;
   color: var(--color-gray-800);
   font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .templates-subtitle {
-  margin: 0 0 var(--spacing-lg) 0;
+  margin: 0;
   color: var(--color-gray-600);
   font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+}
+
+.templates-actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.ai-generator-quick-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: var(--spacing-xl);
   margin-bottom: var(--spacing-2xl);
 }
@@ -938,69 +1664,209 @@ function addGeneratedAgent() {
   cursor: pointer;
   transition: all 0.3s ease;
   height: fit-content;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
 }
 
 .template-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-xl, 0 10px 40px rgba(0, 0, 0, 0.15));
+  box-shadow: var(--shadow-xl, 0 15px 50px rgba(0, 0, 0, 0.12));
+}
+
+.template-card--autonomous {
+  border-color: rgba(102, 126, 234, 0.2);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
+}
+
+.template-card--reactive {
+  border-color: rgba(240, 147, 251, 0.2);
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.02) 0%, rgba(245, 87, 108, 0.02) 100%);
+}
+
+.template-card--collaborative {
+  border-color: rgba(79, 172, 254, 0.2);
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.02) 0%, rgba(0, 242, 254, 0.02) 100%);
+}
+
+.template-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.template-card:hover::before {
+  opacity: 1;
 }
 
 .template-header {
   display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.template-icon-section {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
+  gap: var(--spacing-sm);
 }
 
 .template-icon {
-  font-size: var(--font-size-2xl);
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: var(--font-size-2xl);
+  border-radius: var(--border-radius-xl);
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-  border-radius: var(--border-radius-lg);
-  margin-right: var(--spacing-sm);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.3s ease;
 }
 
-.template-header h3 {
+.template-icon--autonomous {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.template-icon--reactive {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.template-icon--collaborative {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.template-card:hover .template-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.template-type-badge {
+  margin-top: var(--spacing-xs);
+}
+
+.template-title-section {
   flex: 1;
-  margin: 0;
+  min-width: 0;
+}
+
+.template-name {
+  margin: 0 0 var(--spacing-sm) 0;
   color: var(--color-gray-800);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.template-stats {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  font-weight: var(--font-weight-medium);
+}
+
+.stat-icon {
+  font-size: var(--font-size-base);
+  opacity: 0.8;
+}
+
+.template-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
 }
 
 .template-description {
   color: var(--color-gray-600);
-  margin-bottom: var(--spacing-lg);
   line-height: var(--line-height-relaxed);
+  margin: 0;
+  font-size: var(--font-size-base);
 }
 
-.template-features {
-  margin-bottom: var(--spacing-lg);
+.template-capabilities {
+  padding: var(--spacing-lg);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--color-gray-200);
 }
 
-.template-features h4 {
+.template-capabilities .capabilities-title {
   margin: 0 0 var(--spacing-md) 0;
   color: var(--color-gray-800);
   font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-}
-
-.capability-list {
+  font-weight: var(--font-weight-semibold);
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: var(--spacing-sm);
 }
 
-.template-config {
-  margin-bottom: var(--spacing-lg);
+.template-config-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-gray-50);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-gray-200);
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.config-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.config-value {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-800);
+  font-weight: var(--font-weight-semibold);
+}
+
+.template-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-gray-200);
+  margin-top: var(--spacing-lg);
 }
 
 .template-select-btn {
-  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.template-preview-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
 }
 
 .ai-generator-section {
@@ -1073,11 +1939,63 @@ function addGeneratedAgent() {
 }
 
 /* Responsive improvements */
+@media (max-width: 1024px) {
+  .template-grid {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  }
+  
+  .agents-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
+  .agent-manager {
+    padding: var(--spacing-md);
+  }
+
   .header-content {
-    flex-direction: column;
-    text-align: center;
     gap: var(--spacing-md);
+  }
+  
+  .header-navigation {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+  }
+  
+  .breadcrumb {
+    order: 2;
+  }
+  
+  .header-title-section {
+    text-align: left;
+    order: 1;
+  }
+  
+  .page-title {
+    font-size: var(--font-size-2xl);
+    justify-content: flex-start;
+  }
+  
+  .header-actions {
+    order: 3;
+    justify-content: flex-start;
+    width: 100%;
+  }
+  
+  .agents-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+  }
+  
+  .section-filters {
+    width: 100%;
+  }
+  
+  .filter-select {
+    width: 100%;
   }
   
   .agents-grid {
@@ -1085,8 +2003,27 @@ function addGeneratedAgent() {
     gap: var(--spacing-lg);
   }
   
+  .agent-metrics {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
+  
   .agent-actions {
     flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .action-group {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .action-group--primary {
+    order: 1;
+  }
+  
+  .action-group--secondary {
+    order: 2;
   }
   
   .template-grid {
@@ -1094,8 +2031,56 @@ function addGeneratedAgent() {
     gap: var(--spacing-lg);
   }
   
-  .template-btn {
-    min-width: auto;
+  .template-header {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-md);
+  }
+  
+  .template-icon-section {
+    order: 1;
+  }
+  
+  .template-title-section {
+    order: 2;
+    text-align: center;
+  }
+  
+  .template-stats {
+    justify-content: center;
+  }
+  
+  .template-config-preview {
+    grid-template-columns: 1fr;
+  }
+  
+  .template-footer {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .template-preview-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .templates-header {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  
+  .templates-title-section {
+    text-align: left;
+  }
+  
+  .templates-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .capabilities-grid {
+    grid-template-columns: 1fr;
   }
   
   .form-row {
@@ -1103,42 +2088,56 @@ function addGeneratedAgent() {
     gap: var(--spacing-md);
   }
   
-  .capabilities-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .template-header {
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-  }
-  
-  .ai-generator-section {
-    padding: var(--spacing-xl);
-    margin-top: var(--spacing-xl);
-  }
-  
   .empty-state {
-    padding: var(--spacing-2xl);
+    padding: var(--spacing-2xl) var(--spacing-lg);
   }
   
   .empty-state-icon {
-    font-size: 3rem;
+    font-size: 4rem;
+  }
+  
+  .empty-state-title {
+    font-size: var(--font-size-2xl);
+  }
+  
+  .feature-list {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
   }
 }
 
 @media (max-width: 480px) {
   .agent-manager {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
   }
   
-  .template-header {
+  .page-title {
+    font-size: var(--font-size-xl);
     flex-direction: column;
-    text-align: center;
+    gap: var(--spacing-sm);
   }
   
-  .template-icon {
-    margin-right: 0;
-    margin-bottom: var(--spacing-sm);
+  .title-icon {
+    font-size: var(--font-size-xl);
+  }
+  
+  .breadcrumb-list {
+    flex-wrap: wrap;
+  }
+  
+  .agent-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+  }
+  
+  .agent-title-section {
+    width: 100%;
+  }
+  
+  .agent-status-section {
+    align-items: flex-start;
+    width: 100%;
   }
   
   .capability-checkbox {
@@ -1148,6 +2147,34 @@ function addGeneratedAgent() {
   .modal-footer {
     flex-direction: column;
     gap: var(--spacing-sm);
+  }
+  
+  .modal-footer button {
+    width: 100%;
+  }
+  
+  .empty-state-title {
+    font-size: var(--font-size-xl);
+  }
+  
+  .empty-state-description {
+    font-size: var(--font-size-base);
+  }
+  
+  .feature-item {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-sm);
+  }
+  
+  .metric-item {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-xs);
+  }
+  
+  .stat-item {
+    justify-content: center;
   }
 }
 </style>
