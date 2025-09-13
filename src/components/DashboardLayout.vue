@@ -48,16 +48,48 @@
           <div class="ai-header">
             <span class="ai-icon">🤖</span>
             <h3>AI Assistant</h3>
+            <UIBadge class="ai-status-badge">Online</UIBadge>
           </div>
         </template>
         
         <div class="ai-content">
-          <p class="ai-status">Ready to help</p>
+          <p class="ai-status">Ready to help with your {{ currentSectionLabel.toLowerCase() }}</p>
+          
           <div class="ai-suggestions">
             <h4>Quick Actions</h4>
-            <button class="ai-suggestion">Create new project</button>
-            <button class="ai-suggestion">Analyze project status</button>
-            <button class="ai-suggestion">Optimize workflows</button>
+            <button 
+              v-for="action in contextualActions" 
+              :key="action.text"
+              class="ai-suggestion"
+              @click="handleAIAction(action)"
+            >
+              <span class="action-icon">{{ action.icon }}</span>
+              {{ action.text }}
+            </button>
+          </div>
+
+          <div class="ai-insights" v-if="currentSection !== 'projects' || hasProjects">
+            <h4>Insights</h4>
+            <div class="insight-item">
+              <span class="insight-icon">📊</span>
+              <span class="insight-text">{{ currentInsight }}</span>
+            </div>
+          </div>
+
+          <div class="ai-chat-prompt">
+            <h4>Ask AI</h4>
+            <div class="chat-input-group">
+              <input 
+                type="text" 
+                placeholder="Type your question..."
+                class="chat-input"
+                v-model="chatInput"
+                @keyup.enter="handleChatSubmit"
+              />
+              <button class="chat-submit" @click="handleChatSubmit" :disabled="!chatInput.trim()">
+                <span>→</span>
+              </button>
+            </div>
           </div>
         </div>
       </UICard>
@@ -68,7 +100,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { UITabs, UICard } from '@/ui'
+import { UITabs, UICard, UIBadge } from '@/ui'
 
 interface SectionTab {
   value: string
@@ -133,6 +165,49 @@ const sections: Section[] = [
 // Determine current section based on route
 const currentSection = ref(getCurrentSectionFromRoute())
 const currentTab = ref(getCurrentTabFromRoute())
+const chatInput = ref('')
+const hasProjects = ref(false) // This would be connected to your project store
+
+const currentSectionLabel = computed(() => {
+  const section = sections.find(s => s.key === currentSection.value)
+  return section?.label || 'Projects'
+})
+
+const contextualActions = computed(() => {
+  const baseActions = {
+    projects: [
+      { icon: '➕', text: 'Create new project', action: 'create_project' },
+      { icon: '📊', text: 'Analyze project status', action: 'analyze_projects' },
+      { icon: '📋', text: 'Generate project report', action: 'project_report' }
+    ],
+    agents: [
+      { icon: '🤖', text: 'Create new agent', action: 'create_agent' },
+      { icon: '⚡', text: 'Optimize agent performance', action: 'optimize_agents' },
+      { icon: '🔄', text: 'Restart failed agents', action: 'restart_agents' }
+    ],
+    orchestration: [
+      { icon: '🔄', text: 'Create workflow', action: 'create_workflow' },
+      { icon: '📈', text: 'Analyze performance', action: 'analyze_performance' },
+      { icon: '🎯', text: 'Optimize processes', action: 'optimize_processes' }
+    ],
+    integrations: [
+      { icon: '🔗', text: 'Add integration', action: 'add_integration' },
+      { icon: '🔍', text: 'Test connections', action: 'test_connections' },
+      { icon: '⚙️', text: 'Configure endpoints', action: 'configure_endpoints' }
+    ]
+  }
+  return baseActions[currentSection.value as keyof typeof baseActions] || baseActions.projects
+})
+
+const currentInsight = computed(() => {
+  const insights = {
+    projects: 'Your projects are running smoothly. Consider adding automation.',
+    agents: 'Agent performance is optimal. 3 agents are currently active.',
+    orchestration: 'Workflow efficiency increased by 15% this week.',
+    integrations: 'All integrations are healthy. Consider adding webhooks.'
+  }
+  return insights[currentSection.value as keyof typeof insights] || insights.projects
+})
 
 function getCurrentSectionFromRoute(): string {
   const path = route.path
@@ -174,6 +249,20 @@ function onTabChange(tabValue: string) {
   const tab = section?.tabs?.find(t => t.value === tabValue)
   if (tab) {
     router.push(tab.route)
+  }
+}
+
+function handleAIAction(action: { icon: string; text: string; action: string }) {
+  // This would integrate with your actual AI system
+  console.log('AI Action:', action.action)
+  // You could dispatch to stores, call APIs, etc.
+}
+
+function handleChatSubmit() {
+  if (chatInput.value.trim()) {
+    console.log('AI Chat:', chatInput.value)
+    // This would integrate with your actual AI chat system
+    chatInput.value = ''
   }
 }
 
@@ -303,11 +392,17 @@ watch(() => route.path, () => {
   display: flex;
   align-items: center;
   gap: var(--spacing-md, 0.75rem);
+  justify-content: space-between;
 }
 
 .ai-header h3 {
   margin: 0;
   color: var(--color-gray-800, #212529);
+  flex: 1;
+}
+
+.ai-status-badge {
+  font-size: var(--font-size-xs, 0.75rem);
 }
 
 .ai-icon {
@@ -317,16 +412,19 @@ watch(() => route.path, () => {
 .ai-content {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg, 1rem);
+  gap: var(--spacing-xl, 1.25rem);
 }
 
 .ai-status {
   margin: 0;
   color: var(--color-gray-600, #495057);
   font-style: italic;
+  font-size: var(--font-size-sm, 0.875rem);
 }
 
-.ai-suggestions h4 {
+.ai-suggestions h4,
+.ai-insights h4,
+.ai-chat-prompt h4 {
   margin: 0 0 var(--spacing-md, 0.75rem) 0;
   color: var(--color-gray-700, #495057);
   font-size: var(--font-size-sm, 0.875rem);
@@ -334,7 +432,9 @@ watch(() => route.path, () => {
 }
 
 .ai-suggestion {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 0.5rem);
   width: 100%;
   padding: var(--spacing-md, 0.75rem);
   margin-bottom: var(--spacing-sm, 0.5rem);
@@ -345,12 +445,86 @@ watch(() => route.path, () => {
   font-size: var(--font-size-sm, 0.875rem);
   cursor: pointer;
   transition: all 0.2s ease;
+  text-align: left;
 }
 
 .ai-suggestion:hover {
   background: var(--color-primary, #667eea);
   color: var(--color-white, #ffffff);
   border-color: var(--color-primary, #667eea);
+  transform: translateY(-1px);
+}
+
+.action-icon {
+  font-size: var(--font-size-base, 1rem);
+  flex-shrink: 0;
+}
+
+.insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm, 0.5rem);
+  padding: var(--spacing-md, 0.75rem);
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: var(--border-radius-md, 0.5rem);
+  border-left: 3px solid var(--color-primary, #667eea);
+}
+
+.insight-icon {
+  font-size: var(--font-size-base, 1rem);
+  flex-shrink: 0;
+}
+
+.insight-text {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-gray-700, #495057);
+  line-height: var(--line-height-normal, 1.5);
+}
+
+.chat-input-group {
+  display: flex;
+  gap: var(--spacing-sm, 0.5rem);
+}
+
+.chat-input {
+  flex: 1;
+  padding: var(--spacing-md, 0.75rem);
+  border: 1px solid var(--color-gray-200, #dee2e6);
+  border-radius: var(--border-radius-md, 0.5rem);
+  font-size: var(--font-size-sm, 0.875rem);
+  background: var(--color-white, #ffffff);
+  transition: border-color 0.2s ease;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: var(--color-primary, #667eea);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.chat-submit {
+  padding: var(--spacing-md, 0.75rem);
+  background: var(--color-primary, #667eea);
+  color: var(--color-white, #ffffff);
+  border: none;
+  border-radius: var(--border-radius-md, 0.5rem);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+}
+
+.chat-submit:hover:not(:disabled) {
+  background: var(--color-primary-dark, #5a67d8);
+  transform: translateY(-1px);
+}
+
+.chat-submit:disabled {
+  background: var(--color-gray-300, #ced4da);
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Responsive Design */
