@@ -8,7 +8,16 @@ export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? '/AI-Board/' : '/',
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      crypto: fileURLToPath(new URL('./src/polyfills/crypto-polyfill.js', import.meta.url)),
+      stream: 'stream-browserify',
+      buffer: 'buffer'
     }
+  },
+  define: {
+    global: 'globalThis'
+  },
+  optimizeDeps: {
+    include: ['buffer', 'crypto-browserify', 'stream-browserify']
   }
 })
