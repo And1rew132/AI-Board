@@ -86,6 +86,10 @@
           <GitHubMCPManager />
         </div>
 
+        <div v-if="activeTab === 'auto-issues'" class="integration-section">
+          <GitHubAutoIssues />
+        </div>
+
         <div v-if="activeTab === 'custom'" class="integration-section">
           <div class="custom-mcp">
             <h3>Custom MCP Endpoints</h3>
@@ -218,6 +222,7 @@
 import { ref, computed, reactive } from 'vue'
 import { useAgentStore } from '@/stores/agents'
 import GitHubMCPManager from '@/components/GitHubMCPManager.vue'
+import GitHubAutoIssues from '@/components/GitHubAutoIssues.vue'
 import OpenAIManager from '@/components/OpenAIManager.vue'
 import type { MCPEndpoint } from '@/types'
 
@@ -228,6 +233,7 @@ const tabs = [
   { id: 'overview', name: 'Overview', icon: '📊' },
   { id: 'openai', name: 'OpenAI', icon: '🤖' },
   { id: 'github', name: 'GitHub', icon: '🐙' },
+  { id: 'auto-issues', name: 'Auto Issues', icon: '📋' },
   { id: 'custom', name: 'Custom', icon: '⚙️' }
 ]
 
