@@ -74,7 +74,7 @@ export interface Agent {
 }
 
 export interface AgentCapability {
-  type: 'code_generation' | 'content_creation' | 'file_management' | 'api_integration' | 'analysis' | 'mcp_client' | 'ai_generation';
+  type: 'code_generation' | 'content_creation' | 'file_management' | 'api_integration' | 'analysis' | 'mcp_client' | 'ai_generation' | 'github_issues';
   description: string;
   enabled: boolean;
 }

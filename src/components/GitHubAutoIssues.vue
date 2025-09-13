@@ -133,6 +133,10 @@
               <span class="value">{{ config.repositoryOwner }}/{{ config.repositoryName || 'Not set' }}</span>
             </div>
             <div class="detail-item">
+              <span class="label">Associated Agent:</span>
+              <span class="value">{{ getAgentStatus() }}</span>
+            </div>
+            <div class="detail-item">
               <span class="label">Last Run:</span>
               <span class="value">{{ config.lastRun ? formatDate(config.lastRun) : 'Never' }}</span>
             </div>
@@ -233,9 +237,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { GitHubMCPService, type GitHubRepository } from '@/services/github-mcp'
-import type { GitHubAutoIssueConfig, GitHubIssue } from '@/types'
+import { useAgentStore } from '@/stores/agents'
+import type { GitHubAutoIssueConfig, GitHubIssue, Agent, MCPEndpoint } from '@/types'
 
-// const agentStore = useAgentStore() // We might use this later for agent integration
+const agentStore = useAgentStore()
 const githubMCP = new GitHubMCPService()
 
 const saving = ref(false)
@@ -277,8 +282,16 @@ onMounted(async () => {
     labelsInput.value = config.labels?.join(', ') || ''
   }
 
-  // Check if GitHub is already connected
-  if (githubMCP.isConnected()) {
+  // Try to initialize GitHub connection from existing MCP endpoints
+  const githubEndpoint = agentStore.getActiveMCPEndpoints()
+    .find(endpoint => endpoint.name.includes('GitHub'))
+  
+  if (githubEndpoint && githubEndpoint.auth?.credentials?.token) {
+    await githubMCP.connectToGitHub(githubEndpoint.auth.credentials.token)
+  }
+
+  // Check if GitHub is connected and load recent issues
+  if (githubMCP.isConnected() && config.repositoryOwner && config.repositoryName) {
     await loadRecentIssues()
   }
 })
@@ -367,9 +380,68 @@ async function runAnalysisNow() {
 }
 
 async function createOrUpdateAgent() {
-  // This would integrate with the agent system
-  // For now, we'll just log that an agent would be created
-  console.log('Creating/updating auto-issue agent for', config.repositoryOwner + '/' + config.repositoryName)
+  if (!config.repositoryOwner || !config.repositoryName) {
+    console.warn('Cannot create agent without repository configuration')
+    return
+  }
+
+  try {
+    // Check if an agent for this repository already exists
+    const existingAgent = agentStore.agents.find(agent => 
+      agent.name === `GitHub Auto Issues: ${config.repositoryOwner}/${config.repositoryName}`
+    )
+
+    if (existingAgent && config.enabled) {
+      // Update existing agent
+      agentStore.updateAgent(existingAgent.id, {
+        status: 'active',
+        lastActivity: new Date()
+      })
+      config.agentId = existingAgent.id
+      console.log('Updated existing auto-issue agent:', existingAgent.id)
+    } else if (config.enabled) {
+      // Create new agent
+      const newAgent: Omit<Agent, 'id'> = {
+        name: `GitHub Auto Issues: ${config.repositoryOwner}/${config.repositoryName}`,
+        description: `Automatically analyzes README and creates GitHub issues for ${config.repositoryOwner}/${config.repositoryName}`,
+        type: 'autonomous',
+        status: 'active',
+        capabilities: [
+          { type: 'github_issues', description: 'Create GitHub issues', enabled: true },
+          { type: 'analysis', description: 'Analyze repository content', enabled: true },
+          { type: 'mcp_client', description: 'Use MCP integrations', enabled: true }
+        ],
+        config: {
+          autonomyLevel: 'medium',
+          promptingStrategy: 'task_driven',
+          mcpEndpoints: [githubMCP.getConnectionInfo()].filter(Boolean) as MCPEndpoint[],
+          storageAccess: false,
+          collaboration: {
+            canCreateProjects: false,
+            canModifyOtherAgentWork: false,
+            requiresApproval: true
+          }
+        },
+        projects: [],
+        lastActivity: new Date(),
+        createdAt: new Date(),
+        runInterval: config.scheduleInterval * 60 // Convert minutes to seconds
+      }
+
+      const createdAgent = agentStore.createAgent(newAgent)
+      config.agentId = createdAgent.id
+      console.log('Created new auto-issue agent:', createdAgent.id)
+    } else if (existingAgent && !config.enabled) {
+      // Disable existing agent
+      agentStore.updateAgent(existingAgent.id, {
+        status: 'offline'
+      })
+      console.log('Disabled auto-issue agent:', existingAgent.id)
+    }
+  } catch (error) {
+    console.error('Failed to create/update agent:', error)
+    config.lastError = `Agent creation failed: ${error}`
+  }
 }
 
 async function performAnalysis() {
@@ -487,6 +559,19 @@ function formatDate(date: Date): string {
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
+}
+
+function getAgentStatus(): string {
+  if (!config.agentId) {
+    return 'No agent created'
+  }
+  
+  const agent = agentStore.agents.find(a => a.id === config.agentId)
+  if (!agent) {
+    return 'Agent not found'
+  }
+  
+  return `${agent.name} (${agent.status})`
 }
 </script>
 
