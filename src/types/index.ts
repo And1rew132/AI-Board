@@ -187,6 +187,70 @@ export interface GitHubSyncTask {
   };
 }
 
+// GitHub Issue types
+export interface GitHubIssue {
+  id: number;
+  number: number;
+  title: string;
+  body: string;
+  state: 'open' | 'closed';
+  labels: GitHubLabel[];
+  assignees: GitHubUser[];
+  milestone?: GitHubMilestone;
+  created_at: string;
+  updated_at: string;
+  closed_at?: string;
+  html_url: string;
+  user: GitHubUser;
+}
+
+export interface GitHubLabel {
+  id: number;
+  name: string;
+  color: string;
+  description?: string;
+}
+
+export interface GitHubUser {
+  id: number;
+  login: string;
+  avatar_url: string;
+  html_url: string;
+}
+
+export interface GitHubMilestone {
+  id: number;
+  number: number;
+  title: string;
+  description?: string;
+  state: 'open' | 'closed';
+  due_on?: string;
+}
+
+export interface CreateIssueRequest {
+  title: string;
+  body?: string;
+  labels?: string[];
+  assignees?: string[];
+  milestone?: number;
+}
+
+export interface GitHubAutoIssueConfig {
+  id: string;
+  agentId: string;
+  repositoryOwner: string;
+  repositoryName: string;
+  enabled: boolean;
+  analysisPrompt?: string;
+  issueTemplate?: string;
+  labels?: string[];
+  assignees?: string[];
+  scheduleInterval: number; // minutes
+  lastRun?: Date;
+  createdIssues: number;
+  lastError?: string;
+}
+
 // OpenAI Integration types
 export interface OpenAIConfig {
   apiKey: string;

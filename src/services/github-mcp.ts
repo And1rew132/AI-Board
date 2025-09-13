@@ -1,4 +1,4 @@
-import type { MCPEndpoint } from '@/types';
+import type { MCPEndpoint, GitHubIssue, CreateIssueRequest } from '@/types';
 import { MCPService } from './mcp';
 
 export interface GitHubRepository {
@@ -324,6 +324,131 @@ export class GitHubMCPService extends MCPService {
     }
   }
 
+  // GitHub Issues methods
+  async listIssues(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'open'): Promise<GitHubIssue[]> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues?state=${state}&per_page=50`, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const issues = await response.json();
+      return issues.filter((issue: any) => !issue.pull_request).map((issue: any) => ({
+        id: issue.id,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body || '',
+        state: issue.state,
+        labels: issue.labels || [],
+        assignees: issue.assignees || [],
+        milestone: issue.milestone,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        closed_at: issue.closed_at,
+        html_url: issue.html_url,
+        user: issue.user
+      }));
+    } catch (error) {
+      console.error('Failed to list issues:', error);
+      throw error;
+    }
+  }
+
+  async createIssue(owner: string, repo: string, issueData: CreateIssueRequest): Promise<GitHubIssue> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(issueData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+      }
+
+      const issue = await response.json();
+      return {
+        id: issue.id,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body || '',
+        state: issue.state,
+        labels: issue.labels || [],
+        assignees: issue.assignees || [],
+        milestone: issue.milestone,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        closed_at: issue.closed_at,
+        html_url: issue.html_url,
+        user: issue.user
+      };
+    } catch (error) {
+      console.error('Failed to create issue:', error);
+      throw error;
+    }
+  }
+
+  async getIssue(owner: string, repo: string, issueNumber: number): Promise<GitHubIssue> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const issue = await response.json();
+      return {
+        id: issue.id,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body || '',
+        state: issue.state,
+        labels: issue.labels || [],
+        assignees: issue.assignees || [],
+        milestone: issue.milestone,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        closed_at: issue.closed_at,
+        html_url: issue.html_url,
+        user: issue.user
+      };
+    } catch (error) {
+      console.error('Failed to get issue:', error);
+      throw error;
+    }
+  }
+
   isConnected(): boolean {
     return this.connected && this.githubToken !== null;
   }
@@ -347,7 +472,8 @@ export class GitHubMCPService extends MCPService {
         'file_read',
         'file_write',
         'commit_history',
-        'branch_management'
+        'branch_management',
+        'issue_management'
       ],
       isActive: true
     };
