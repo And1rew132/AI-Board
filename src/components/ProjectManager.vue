@@ -21,7 +21,8 @@
       </UISelect>
     </div>
 
-    <div class="projects-grid">
+    <!-- Projects Grid -->
+    <div class="projects-grid" v-if="filteredProjects.length > 0">
       <UICard 
         v-for="project in filteredProjects" 
         :key="project.id"
@@ -72,6 +73,48 @@
       </UICard>
     </div>
 
+    <!-- Enhanced Empty State -->
+    <div class="empty-state" v-else>
+      <div class="empty-content">
+        <div class="empty-icon">📁</div>
+        <h3 class="empty-title">No Projects Found</h3>
+        <p class="empty-description" v-if="selectedStatus">
+          No projects match the "{{ getStatusDisplayName(selectedStatus) }}" filter.
+          <UIButton @click="clearFilter" variant="ghost" size="sm" class="clear-filter-btn">
+            Clear filter
+          </UIButton>
+        </p>
+        <p class="empty-description" v-else>
+          Start your AI-powered project management journey by creating your first project.
+        </p>
+        
+        <div class="empty-actions" v-if="!selectedStatus">
+          <UIButton @click="showCreateDialog = true" size="lg" class="create-project-btn">
+            <span class="btn-icon">➕</span>
+            Create Project
+          </UIButton>
+        </div>
+
+        <div class="empty-suggestions" v-if="!selectedStatus">
+          <h4>Getting Started Tips:</h4>
+          <ul class="suggestions-list">
+            <li>
+              <span class="suggestion-icon">💡</span>
+              Start with a clear project name and description
+            </li>
+            <li>
+              <span class="suggestion-icon">🤖</span>
+              Assign AI agents to automate repetitive tasks
+            </li>
+            <li>
+              <span class="suggestion-icon">📋</span>
+              Break down work into manageable tasks and milestones
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <!-- Create/Edit Project Dialog -->
     <UIModal 
       v-model="showCreateDialog" 
@@ -117,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue';
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProjectStore } from '@/stores/projects';
 import { UIButton, UICard, UIModal, UIInput, UITextarea, UISelect, UIBadge, UIStatCard } from '@/ui';
@@ -153,6 +196,20 @@ function getStatusVariant(status: Project['status']) {
     case 'archived': return 'gray'
     default: return 'gray'
   }
+}
+
+function getStatusDisplayName(status: string) {
+  switch (status) {
+    case 'active': return 'Active'
+    case 'paused': return 'Paused'
+    case 'completed': return 'Completed'
+    case 'archived': return 'Archived'
+    default: return status
+  }
+}
+
+function clearFilter() {
+  selectedStatus.value = '';
 }
 
 function selectProject(project: Project) {
@@ -203,6 +260,24 @@ function closeDialog() {
   projectForm.description = '';
   projectForm.status = 'active';
 }
+
+// Listen for create project event from Home.vue
+function handleCreateProjectEvent(event: CustomEvent) {
+  showCreateDialog.value = true;
+  if (event.detail?.isFirstProject) {
+    // Could add special handling for first project
+    projectForm.name = '';
+    projectForm.description = '';
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('create-project', handleCreateProjectEvent as EventListener);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('create-project', handleCreateProjectEvent as EventListener);
+});
 </script>
 
 <style scoped>
@@ -305,6 +380,136 @@ function closeDialog() {
   
   .project-actions {
     flex-direction: column;
+  }
+}
+
+/* Empty State Styles */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: var(--spacing-3xl);
+}
+
+.empty-content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.empty-icon {
+  font-size: var(--font-size-5xl);
+  margin-bottom: var(--spacing-xl);
+  opacity: 0.6;
+}
+
+.empty-title {
+  margin: 0 0 var(--spacing-lg) 0;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.empty-description {
+  margin: 0 0 var(--spacing-2xl) 0;
+  color: var(--color-gray-600);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+}
+
+.clear-filter-btn {
+  margin-left: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.empty-actions {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.create-project-btn {
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}
+
+.create-project-btn:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-icon {
+  margin-right: var(--spacing-sm);
+}
+
+.empty-suggestions {
+  text-align: left;
+  background: var(--color-gray-50);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xl);
+}
+
+.empty-suggestions h4 {
+  margin: 0 0 var(--spacing-lg) 0;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.suggestions-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestions-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--color-white);
+  border-radius: var(--border-radius-md);
+  border-left: 3px solid var(--color-primary);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-700);
+  line-height: var(--line-height-normal);
+}
+
+.suggestions-list li:last-child {
+  margin-bottom: 0;
+}
+
+.suggestion-icon {
+  font-size: var(--font-size-base);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Responsive empty state */
+@media (max-width: 768px) {
+  .empty-state {
+    padding: var(--spacing-2xl);
+    min-height: 300px;
+  }
+  
+  .empty-content {
+    max-width: 100%;
+  }
+  
+  .empty-suggestions {
+    padding: var(--spacing-lg);
+  }
+  
+  .suggestions-list li {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-sm);
   }
 }
 </style>
