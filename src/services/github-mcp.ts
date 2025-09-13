@@ -40,9 +40,11 @@ export interface GitHubCommit {
 export class GitHubMCPService extends MCPService {
   private githubToken: string | null = null;
   private connected: boolean = false;
+  private authMethod: 'pat' | 'oauth' = 'pat';
 
   async connectToGitHub(token: string): Promise<boolean> {
     this.githubToken = token;
+    this.authMethod = 'pat';
     
     try {
       // Test the token by making a simple API call to GitHub
@@ -69,6 +71,133 @@ export class GitHubMCPService extends MCPService {
     }
   }
 
+  async connectToGitHubOAuth(accessToken: string): Promise<boolean> {
+    this.githubToken = accessToken;
+    this.authMethod = 'oauth';
+    
+    try {
+      // Test the OAuth token by making a simple API call to GitHub
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (response.ok) {
+        this.connected = true;
+        return true;
+      } else {
+        console.error('GitHub OAuth authentication failed:', response.status, response.statusText);
+        this.connected = false;
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to connect to GitHub via OAuth:', error);
+      this.connected = false;
+      return false;
+    }
+  }
+
+  getOAuthUrl(): string {
+    const clientId = import.meta.env.VITE_GITHUB_OAUTH_CLIENT_ID;
+    const redirectUri = import.meta.env.VITE_GITHUB_OAUTH_REDIRECT_URI;
+    const scope = import.meta.env.VITE_GITHUB_OAUTH_SCOPE || 'repo,user:email';
+    
+    if (!clientId) {
+      throw new Error('GitHub OAuth client ID not configured. Please set VITE_GITHUB_OAUTH_CLIENT_ID in environment variables.');
+    }
+    
+    const state = this.generateRandomState();
+    
+    // Store state in sessionStorage for security
+    sessionStorage.setItem('github_oauth_state', state);
+    
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scope,
+      state: state,
+      allow_signup: 'true'
+    });
+    
+    return `https://github.com/login/oauth/authorize?${params.toString()}`;
+  }
+
+  async exchangeCodeForToken(code: string, state: string): Promise<string | null> {
+    // Verify state parameter for security
+    const storedState = sessionStorage.getItem('github_oauth_state');
+    if (!storedState || storedState !== state) {
+      throw new Error('Invalid OAuth state parameter. Possible CSRF attack.');
+    }
+    
+    // Clear the stored state
+    sessionStorage.removeItem('github_oauth_state');
+    
+    const clientId = import.meta.env.VITE_GITHUB_OAUTH_CLIENT_ID;
+    
+    if (!clientId) {
+      throw new Error('GitHub OAuth client ID not configured.');
+    }
+    
+    try {
+      // Note: In a production app, this should be done server-side for security
+      // as the client secret should not be exposed to the client
+      const response = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          // client_secret: clientSecret, // This should be handled server-side
+          code: code
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`GitHub OAuth token exchange failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(`GitHub OAuth error: ${data.error_description || data.error}`);
+      }
+      
+      return data.access_token;
+    } catch (error) {
+      console.error('Failed to exchange OAuth code for token:', error);
+      throw error;
+    }
+  }
+
+  private generateRandomState(): string {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    if (!this.githubToken) {
+      throw new Error('No GitHub token available');
+    }
+    
+    return {
+      'Authorization': this.authMethod === 'oauth' 
+        ? `Bearer ${this.githubToken}` 
+        : `token ${this.githubToken}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'AI-Board'
+    };
+  }
+
+  getAuthMethod(): 'pat' | 'oauth' {
+    return this.authMethod;
+  }
+
   async listRepositories(org?: string): Promise<GitHubRepository[]> {
     if (!this.connected || !this.githubToken) {
       throw new Error('GitHub not connected. Please provide a valid token.');
@@ -81,11 +210,7 @@ export class GitHubMCPService extends MCPService {
       }
 
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board'
-        }
+        headers: this.getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -119,11 +244,7 @@ export class GitHubMCPService extends MCPService {
 
     try {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-        headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board'
-        }
+        headers: this.getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -162,11 +283,7 @@ export class GitHubMCPService extends MCPService {
       }
 
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board'
-        }
+        headers: this.getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -206,11 +323,7 @@ export class GitHubMCPService extends MCPService {
       }
 
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board'
-        }
+        headers: this.getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -305,11 +418,7 @@ export class GitHubMCPService extends MCPService {
 
     try {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches`, {
-        headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board'
-        }
+        headers: this.getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -335,11 +444,7 @@ export class GitHubMCPService extends MCPService {
 
     try {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues?state=${state}&per_page=100`, {
-        headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board'
-        }
+        headers: this.getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -383,9 +488,7 @@ export class GitHubMCPService extends MCPService {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
         method: 'POST',
         headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board',
+          ...this.getAuthHeaders(),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(issueData)
@@ -421,11 +524,7 @@ export class GitHubMCPService extends MCPService {
 
     try {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
-        headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AI-Board'
-        }
+        headers: this.getAuthHeaders()
       });
 
       if (!response.ok) {
@@ -455,8 +554,11 @@ export class GitHubMCPService extends MCPService {
       url: 'https://api.github.com',
       type: 'api_gateway',
       auth: {
-        type: 'bearer',
-        credentials: { token: this.githubToken }
+        type: this.authMethod === 'oauth' ? 'oauth' : 'bearer',
+        credentials: { 
+          token: this.githubToken,
+          authMethod: this.authMethod
+        }
       },
       capabilities: [
         'repository_list',

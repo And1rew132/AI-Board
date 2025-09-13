@@ -88,6 +88,12 @@ const routes = [
         path: 'mcp/webhooks',
         name: 'MCPWebhooks',
         component: MCPManager // For now, reuse MCPManager
+      },
+      // OAuth callback route
+      {
+        path: 'auth/github/callback',
+        name: 'GitHubOAuthCallback',
+        component: () => import('@/views/GitHubOAuthCallback.vue')
       }
     ]
   }

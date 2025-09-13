@@ -10,28 +10,77 @@
 
     <div v-if="!isConnected" class="connection-form">
       <h4>Connect to GitHub</h4>
-      <form @submit.prevent="connectToGitHub">
-        <div class="form-group">
-          <label for="githubToken">GitHub Personal Access Token:</label>
-          <input 
-            id="githubToken"
-            v-model="connectionForm.token" 
-            type="password" 
-            required
-            class="form-input"
-            placeholder="ghp_xxxxxxxxxxxx"
-          >
-          <small class="form-help">
-            <strong>Required:</strong> Personal access token with repo access for repository management.
-            <br>
-            Create one at: <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">GitHub Settings → Personal access tokens</a>
-          </small>
+      
+      <div class="auth-tabs">
+        <button 
+          @click="authMode = 'pat'" 
+          class="auth-tab"
+          :class="{ active: authMode === 'pat' }"
+        >
+          Personal Access Token
+        </button>
+        <button 
+          @click="authMode = 'oauth'" 
+          class="auth-tab"
+          :class="{ active: authMode === 'oauth' }"
+        >
+          OAuth / SSO
+        </button>
+      </div>
+
+      <div v-if="authMode === 'pat'" class="auth-section">
+        <form @submit.prevent="connectToGitHub">
+          <div class="form-group">
+            <label for="githubToken">GitHub Personal Access Token:</label>
+            <input 
+              id="githubToken"
+              v-model="connectionForm.token" 
+              type="password" 
+              required
+              class="form-input"
+              placeholder="ghp_xxxxxxxxxxxx"
+            >
+            <small class="form-help">
+              <strong>Required:</strong> Personal access token with repo access for repository management.
+              <br>
+              Create one at: <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">GitHub Settings → Personal access tokens</a>
+            </small>
+          </div>
+          
+          <button type="submit" :disabled="connecting || !connectionForm.token.trim()" class="btn-connect">
+            {{ connecting ? 'Connecting...' : 'Connect with Personal Access Token' }}
+          </button>
+        </form>
+      </div>
+
+      <div v-else-if="authMode === 'oauth'" class="auth-section">
+        <div class="oauth-info">
+          <h5>OAuth Authentication</h5>
+          <p>Connect using GitHub's OAuth flow for enhanced security and SSO support.</p>
+          <div class="oauth-benefits">
+            <div class="benefit-item">
+              <span class="benefit-icon">🔒</span>
+              <span>More secure than personal access tokens</span>
+            </div>
+            <div class="benefit-item">
+              <span class="benefit-icon">🏢</span>
+              <span>Works with SSO and organization policies</span>
+            </div>
+            <div class="benefit-item">
+              <span class="benefit-icon">⚡</span>
+              <span>No need to manage tokens manually</span>
+            </div>
+          </div>
         </div>
         
-        <button type="submit" :disabled="connecting || !connectionForm.token.trim()" class="btn-connect">
-          {{ connecting ? 'Connecting...' : 'Connect to GitHub' }}
+        <div v-if="oauthError" class="oauth-error">
+          {{ oauthError }}
+        </div>
+        
+        <button @click="initiateOAuth" :disabled="connecting" class="btn-oauth">
+          {{ connecting ? 'Redirecting...' : 'Connect with GitHub OAuth' }}
         </button>
-      </form>
+      </div>
     </div>
 
     <div v-else class="connected-actions">
@@ -39,11 +88,15 @@
         <h4>GitHub Connection</h4>
         <div class="info-item">
           <span class="label">Status:</span>
-          <span class="value connected">Connected with Personal Access Token</span>
+          <span class="value connected">
+            Connected with {{ githubMCP.getAuthMethod() === 'oauth' ? 'OAuth' : 'Personal Access Token' }}
+          </span>
         </div>
         <div class="info-item">
           <span class="label">Token:</span>
-          <span class="value">{{ maskToken(connectionForm.token) }}</span>
+          <span class="value">
+            {{ githubMCP.getAuthMethod() === 'oauth' ? 'OAuth Access Token' : maskToken(connectionForm.token) }}
+          </span>
         </div>
       </div>
 
@@ -122,6 +175,8 @@ const loading = ref(false)
 const showRepositories = ref(false)
 const repositories = ref<GitHubRepository[]>([])
 const error = ref('')
+const authMode = ref<'pat' | 'oauth'>('pat')
+const oauthError = ref('')
 
 const connectionForm = reactive({
   token: ''
@@ -129,6 +184,20 @@ const connectionForm = reactive({
 
 const isConnected = computed(() => githubMCP.isConnected())
 const connectionInfo = computed(() => githubMCP.getConnectionInfo())
+
+async function initiateOAuth() {
+  connecting.value = true
+  oauthError.value = ''
+  
+  try {
+    const oauthUrl = githubMCP.getOAuthUrl()
+    // Redirect to GitHub OAuth
+    window.location.href = oauthUrl
+  } catch (err) {
+    oauthError.value = err instanceof Error ? err.message : 'Failed to initiate OAuth'
+    connecting.value = false
+  }
+}
 
 async function connectToGitHub() {
   connecting.value = true
@@ -285,6 +354,41 @@ onMounted(() => {
   color: #333;
 }
 
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.auth-tab {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+
+.auth-tab:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.auth-tab.active {
+  background: #f8f9fa;
+  color: #007bff;
+  border-bottom-color: #007bff;
+}
+
+.auth-section {
+  padding-top: 1rem;
+}
+
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -334,6 +438,80 @@ onMounted(() => {
 }
 
 .btn-connect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.oauth-info {
+  background: rgba(0, 123, 255, 0.05);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(0, 123, 255, 0.1);
+}
+
+.oauth-info h5 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.oauth-info p {
+  margin: 0 0 1rem 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.oauth-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 14px;
+  color: #555;
+}
+
+.benefit-icon {
+  font-size: 16px;
+}
+
+.oauth-error {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  border-left: 3px solid #dc3545;
+  font-size: 14px;
+}
+
+.btn-oauth {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.btn-oauth:hover:not(:disabled) {
+  background: #24292e;
+  transform: translateY(-2px);
+}
+
+.btn-oauth:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
