@@ -126,7 +126,7 @@ const sections: Section[] = [
     icon: '🏠',
     tabs: [
       { value: 'overview', label: 'Overview', icon: '📊', route: '/' },
-      { value: 'active', label: 'Active', route: '/projects/active' },
+      { value: 'active', label: 'Active', route: '/projects' },
       { value: 'templates', label: 'Templates', route: '/projects/templates' }
     ]
   },

@@ -112,12 +112,27 @@
           </div>
           
           <div class="task-meta">
-            <span class="task-type" :class="`type-${task.type}`">
+            <UIBadge 
+              :variant="getTaskTypeVariant(task.type)" 
+              size="sm"
+              class="task-type-badge"
+            >
               {{ formatTaskType(task.type) }}
-            </span>
-            <span class="task-status" :class="`status-${task.status}`">
+            </UIBadge>
+            <UIBadge 
+              :variant="getTaskStatusVariant(task.status)" 
+              size="sm"
+              class="task-status-badge"
+            >
               {{ formatTaskStatus(task.status) }}
-            </span>
+            </UIBadge>
+            <UIBadge 
+              :variant="getTaskPriorityVariant(task.priority)" 
+              size="sm"
+              class="task-priority-badge"
+            >
+              {{ task.priority.toUpperCase() }}
+            </UIBadge>
             <span v-if="task.assigneeName" class="task-assignee">
               👤 {{ task.assigneeName }}
             </span>
@@ -155,12 +170,20 @@
             @click="selectTask(task)"
           >
             <div class="kanban-task-header">
-              <span class="task-type-badge" :class="`type-${task.type}`">
+              <UIBadge 
+                :variant="getTaskTypeVariant(task.type)" 
+                size="sm"
+                class="task-type-badge-kanban"
+              >
                 {{ task.type.charAt(0).toUpperCase() }}
-              </span>
-              <span class="task-priority-badge" :class="`priority-${task.priority}`">
+              </UIBadge>
+              <UIBadge 
+                :variant="getTaskPriorityVariant(task.priority)" 
+                size="sm"
+                class="task-priority-badge-kanban"
+              >
                 {{ task.priority.charAt(0).toUpperCase() }}
-              </span>
+              </UIBadge>
             </div>
             
             <h5 class="kanban-task-title">{{ task.title }}</h5>
@@ -326,15 +349,27 @@
           <div class="task-detail-header">
             <h3>{{ selectedTask.title }}</h3>
             <div class="task-badges">
-              <span class="badge type-badge" :class="`type-${selectedTask.type}`">
+              <UIBadge 
+                :variant="getTaskTypeVariant(selectedTask.type)" 
+                size="md"
+                class="detail-badge"
+              >
                 {{ formatTaskType(selectedTask.type) }}
-              </span>
-              <span class="badge status-badge" :class="`status-${selectedTask.status}`">
+              </UIBadge>
+              <UIBadge 
+                :variant="getTaskStatusVariant(selectedTask.status)" 
+                size="md"
+                class="detail-badge"
+              >
                 {{ formatTaskStatus(selectedTask.status) }}
-              </span>
-              <span class="badge priority-badge" :class="`priority-${selectedTask.priority}`">
+              </UIBadge>
+              <UIBadge 
+                :variant="getTaskPriorityVariant(selectedTask.priority)" 
+                size="md"
+                class="detail-badge"
+              >
                 {{ selectedTask.priority.toUpperCase() }}
-              </span>
+              </UIBadge>
             </div>
           </div>
           <button @click="closeTaskDetail" class="close-btn">×</button>
@@ -411,6 +446,7 @@
 import { ref, computed, reactive, watch } from 'vue'
 import { useProjectStore } from '@/stores/projects'
 import { useAgentStore } from '@/stores/agents'
+import { UIBadge } from '@/ui'
 import type { ProjectTask } from '@/types'
 
 interface Props {
@@ -521,6 +557,38 @@ function formatDate(date: Date | string) {
 
 function isOverdue(dueDate: Date | string) {
   return new Date(dueDate) < new Date()
+}
+
+function getTaskTypeVariant(type: string) {
+  switch (type) {
+    case 'feature': return 'success'
+    case 'bug': return 'danger'
+    case 'improvement': return 'primary'
+    case 'documentation': return 'secondary'
+    case 'research': return 'gray'
+    default: return 'gray'
+  }
+}
+
+function getTaskStatusVariant(status: string) {
+  switch (status) {
+    case 'todo': return 'gray'
+    case 'in_progress': return 'primary'
+    case 'review': return 'warning'
+    case 'done': return 'success'
+    case 'blocked': return 'danger'
+    default: return 'gray'
+  }
+}
+
+function getTaskPriorityVariant(priority: string) {
+  switch (priority) {
+    case 'urgent': return 'danger'
+    case 'high': return 'warning'
+    case 'medium': return 'primary'
+    case 'low': return 'success'
+    default: return 'gray'
+  }
 }
 
 function selectTask(task: ProjectTask) {
@@ -853,56 +921,29 @@ watch(() => taskForm.assigneeId, (newAssigneeId) => {
 
 .task-meta {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-sm);
   align-items: center;
   flex-wrap: wrap;
 }
 
-.task-type,
-.task-status,
+.task-type-badge,
+.task-status-badge,
+.task-priority-badge {
+  /* Styles now handled by UIBadge component */
+}
+
 .task-assignee,
 .task-due-date {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.task-type {
-  background: #e9ecef;
-  color: #495057;
-}
-
-.type-feature { background: #e7f5e7; color: #2d6a2d; }
-.type-bug { background: #f8d7da; color: #721c24; }
-.type-improvement { background: #d4edda; color: #155724; }
-.type-documentation { background: #d1ecf1; color: #0c5460; }
-.type-research { background: #e2e3e5; color: #383d41; }
-
-.task-status {
-  background: #f8f9fa;
-  color: #6c757d;
-}
-
-.status-todo { background: #e2e3e5; color: #383d41; }
-.status-in_progress { background: #cce5ff; color: #004085; }
-.status-review { background: #fff3cd; color: #856404; }
-.status-done { background: #d4edda; color: #155724; }
-.status-blocked { background: #f8d7da; color: #721c24; }
-
-.task-assignee {
-  background: #f8f9fa;
-  color: #495057;
-}
-
-.task-due-date {
-  background: #f8f9fa;
-  color: #495057;
+  font-size: var(--font-size-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-full);
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
 }
 
 .task-due-date.overdue {
-  background: #f8d7da;
-  color: #721c24;
+  background: var(--color-danger-light, #f8d7da);
+  color: var(--color-danger-dark, #721c24);
 }
 
 .task-actions {
@@ -998,32 +1039,8 @@ watch(() => taskForm.assigneeId, (newAssigneeId) => {
 .kanban-task-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
 }
-
-.task-type-badge,
-.task-priority-badge {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  color: white;
-}
-
-.task-type-badge.type-feature { background: #28a745; }
-.task-type-badge.type-bug { background: #dc3545; }
-.task-type-badge.type-improvement { background: #007bff; }
-.task-type-badge.type-documentation { background: #17a2b8; }
-.task-type-badge.type-research { background: #6c757d; }
-
-.task-priority-badge.priority-urgent { background: #dc3545; }
-.task-priority-badge.priority-high { background: #fd7e14; }
-.task-priority-badge.priority-medium { background: #ffc107; }
-.task-priority-badge.priority-low { background: #28a745; }
 
 .kanban-task-title {
   margin: 0 0 4px 0;
@@ -1111,32 +1128,22 @@ watch(() => taskForm.assigneeId, (newAssigneeId) => {
 
 .task-badges {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
-.badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+.detail-badge {
+  /* Styles handled by UIBadge component */
 }
 
-.type-badge.type-feature { background: #e7f5e7; color: #2d6a2d; }
-.type-badge.type-bug { background: #f8d7da; color: #721c24; }
-.type-badge.type-improvement { background: #d4edda; color: #155724; }
-.type-badge.type-documentation { background: #d1ecf1; color: #0c5460; }
-.type-badge.type-research { background: #e2e3e5; color: #383d41; }
-
-.status-badge.status-todo { background: #e2e3e5; color: #383d41; }
-.status-badge.status-in_progress { background: #cce5ff; color: #004085; }
-.status-badge.status-review { background: #fff3cd; color: #856404; }
-.status-badge.status-done { background: #d4edda; color: #155724; }
-.status-badge.status-blocked { background: #f8d7da; color: #721c24; }
-
-.priority-badge.priority-urgent { background: #dc3545; color: white; }
-.priority-badge.priority-high { background: #fd7e14; color: white; }
-.priority-badge.priority-medium { background: #ffc107; color: #212529; }
-.priority-badge.priority-low { background: #28a745; color: white; }
+.task-type-badge-kanban,
+.task-priority-badge-kanban {
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .close-btn {
   background: none;
