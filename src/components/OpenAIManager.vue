@@ -1,116 +1,178 @@
 <template>
   <div class="openai-manager">
-    <div class="header">
-      <h3>OpenAI Integration</h3>
-      <div class="status-indicator" :class="{ connected: isConnected, connecting: isConnecting }">
-        <span class="status-dot"></span>
-        {{ connectionStatus }}
+    <div class="section-header">
+      <div class="header-content">
+        <h3>OpenAI Integration</h3>
+        <p class="section-description">Connect to OpenAI's API for AI-powered capabilities</p>
+      </div>
+      <div class="status-indicator" :class="{ 
+        connected: isConnected, 
+        connecting: isConnecting,
+        disconnected: !isConnected && !isConnecting 
+      }">
+        <span class="status-icon" :aria-label="connectionStatus">
+          {{ isConnected ? '🟢' : isConnecting ? '🟡' : '🔴' }}
+        </span>
+        <div class="status-info">
+          <span class="status-text">{{ connectionStatus }}</span>
+        </div>
       </div>
     </div>
 
     <!-- Configuration Form -->
     <div v-if="!isConnected" class="config-form">
-      <div class="form-group">
-        <label for="apiKey">API Key</label>
-        <div class="input-group">
+      <div class="form-header">
+        <h4>Connect to OpenAI</h4>
+        <p class="form-description">Configure your OpenAI API connection for AI-powered features</p>
+      </div>
+      
+      <form @submit.prevent="connect" novalidate>
+        <div class="form-group">
+          <label for="apiKey" class="form-label">
+            API Key <span class="required">*</span>
+          </label>
+          <div class="input-group">
+            <input
+              id="apiKey"
+              v-model="config.apiKey"
+              :type="showApiKey ? 'text' : 'password'"
+              placeholder="sk-..."
+              class="form-input"
+              :class="{ 'error': !config.apiKey && error }"
+              aria-describedby="apiKey-help"
+              required
+            />
+            <button 
+              type="button" 
+              @click="toggleApiKeyVisibility"
+              class="input-addon"
+              :aria-label="showApiKey ? 'Hide API key' : 'Show API key'"
+            >
+              {{ showApiKey ? '👁️' : '👁️‍🗨️' }}
+            </button>
+          </div>
+          <small id="apiKey-help" class="field-help">
+            Your OpenAI API key (starts with "sk-")
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="organization" class="form-label">Organization ID</label>
           <input
-            id="apiKey"
-            v-model="config.apiKey"
-            :type="showApiKey ? 'text' : 'password'"
-            placeholder="sk-..."
-            class="api-key-input"
+            id="organization"
+            v-model="config.organization"
+            type="text"
+            placeholder="org-..."
+            class="form-input"
+            aria-describedby="organization-help"
           />
-          <button 
-            type="button" 
-            @click="toggleApiKeyVisibility"
-            class="toggle-visibility"
+          <small id="organization-help" class="field-help">
+            Optional: Your OpenAI organization ID (starts with "org-")
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="defaultModel" class="form-label">Default Model</label>
+          <select 
+            id="defaultModel" 
+            v-model="config.defaultModel"
+            class="form-select"
+            aria-describedby="defaultModel-help"
           >
-            {{ showApiKey ? '👁️' : '👁️‍🗨️' }}
+            <option v-for="model in availableModels" :key="model" :value="model">
+              {{ model }}
+            </option>
+          </select>
+          <small id="defaultModel-help" class="field-help">
+            Choose the default AI model for your integrations
+          </small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="maxTokens" class="form-label">Max Tokens</label>
+            <input
+              id="maxTokens"
+              v-model.number="config.maxTokens"
+              type="number"
+              min="1"
+              max="4096"
+              class="form-input"
+              aria-describedby="maxTokens-help"
+            />
+            <small id="maxTokens-help" class="field-help">
+              Maximum tokens per request (1-4096)
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="temperature" class="form-label">Temperature</label>
+            <input
+              id="temperature"
+              v-model.number="config.temperature"
+              type="number"
+              min="0"
+              max="2"
+              step="0.1"
+              class="form-input"
+              aria-describedby="temperature-help"
+            />
+            <small id="temperature-help" class="field-help">
+              Creativity level (0.0-2.0)
+            </small>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button 
+            type="button"
+            @click="testConnection" 
+            :disabled="!config.apiKey || isConnecting" 
+            class="btn btn-secondary"
+          >
+            {{ isConnecting ? 'Testing...' : 'Test Connection' }}
+          </button>
+          <button 
+            type="submit"
+            :disabled="!config.apiKey || isConnecting" 
+            class="btn btn-primary"
+          >
+            {{ isConnecting ? 'Connecting...' : 'Connect' }}
           </button>
         </div>
-      </div>
-
-      <div class="form-group">
-        <label for="organization">Organization ID (Optional)</label>
-        <input
-          id="organization"
-          v-model="config.organization"
-          type="text"
-          placeholder="org-..."
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="defaultModel">Default Model</label>
-        <select id="defaultModel" v-model="config.defaultModel">
-          <option v-for="model in availableModels" :key="model" :value="model">
-            {{ model }}
-          </option>
-        </select>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="maxTokens">Max Tokens</label>
-          <input
-            id="maxTokens"
-            v-model.number="config.maxTokens"
-            type="number"
-            min="1"
-            max="4096"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="temperature">Temperature</label>
-          <input
-            id="temperature"
-            v-model.number="config.temperature"
-            type="number"
-            min="0"
-            max="2"
-            step="0.1"
-          />
-        </div>
-      </div>
-
-      <div class="actions">
-        <button @click="testConnection" :disabled="!config.apiKey || isConnecting" class="test-btn">
-          {{ isConnecting ? 'Testing...' : 'Test Connection' }}
-        </button>
-        <button @click="connect" :disabled="!config.apiKey || isConnecting" class="connect-btn">
-          Connect
-        </button>
-      </div>
+      </form>
     </div>
 
     <!-- Connected State -->
     <div v-else class="connected-state">
       <div class="connection-info">
-        <div class="info-item">
-          <span class="label">Model:</span>
-          <span class="value">{{ config.defaultModel }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Max Tokens:</span>
-          <span class="value">{{ config.maxTokens }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Temperature:</span>
-          <span class="value">{{ config.temperature }}</span>
-        </div>
-        <div class="info-item" v-if="config.organization">
-          <span class="label">Organization:</span>
-          <span class="value">{{ config.organization }}</span>
+        <h4>Connection Active</h4>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">Model:</span>
+            <span class="value">{{ config.defaultModel }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Max Tokens:</span>
+            <span class="value">{{ config.maxTokens }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Temperature:</span>
+            <span class="value">{{ config.temperature }}</span>
+          </div>
+          <div class="info-item" v-if="config.organization">
+            <span class="label">Organization:</span>
+            <span class="value">{{ config.organization }}</span>
+          </div>
         </div>
       </div>
 
-      <div class="actions">
-        <button @click="disconnect" class="disconnect-btn">
-          Disconnect
-        </button>
-        <button @click="showTestChat = true" class="test-chat-btn">
+      <div class="form-actions">
+        <button @click="showTestChat = true" class="btn btn-primary">
           Test Chat
+        </button>
+        <button @click="disconnect" class="btn btn-secondary">
+          Disconnect
         </button>
       </div>
     </div>
@@ -366,189 +428,358 @@ watch(() => usage.value, saveUsageStats, { deep: true })
 
 <style scoped>
 .openai-manager {
-  padding: 20px;
-  max-width: 800px;
+  padding: 0;
+  max-width: none;
 }
 
-.header {
+.section-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  gap: 20px;
 }
 
-.header h3 {
-  margin: 0;
+.header-content h3 {
+  margin: 0 0 8px 0;
   color: #333;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.section-description {
+  margin: 0;
+  color: #666;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .status-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: #f0f0f0;
-  font-size: 14px;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  min-width: 160px;
+  flex-shrink: 0;
 }
 
 .status-indicator.connected {
-  background: #e7f5e7;
-  color: #2d6a2d;
+  background: #f0fff4;
+  border-color: #9ae6b4;
 }
 
 .status-indicator.connecting {
-  background: #fff3cd;
-  color: #856404;
+  background: #fffaf0;
+  border-color: #fbd38d;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ccc;
+.status-indicator.disconnected {
+  background: #fff5f5;
+  border-color: #feb2b2;
 }
 
-.connected .status-dot {
-  background: #28a745;
+.status-icon {
+  font-size: 20px;
+  line-height: 1;
 }
 
-.connecting .status-dot {
-  background: #ffc107;
-  animation: pulse 1s infinite;
+.status-info {
+  display: flex;
+  flex-direction: column;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.status-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
 }
 
 .config-form {
   background: #f8f9fa;
-  padding: 24px;
-  border-radius: 8px;
+  padding: 32px;
+  border-radius: 12px;
   border: 1px solid #e9ecef;
 }
 
+.form-header {
+  margin-bottom: 32px;
+}
+
+.form-header h4 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.form-description {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 24px;
+  margin-bottom: 24px;
 }
 
-.form-group label {
+.form-label {
   display: block;
-  margin-bottom: 6px;
-  font-weight: 500;
+  margin-bottom: 8px;
   color: #333;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
-.form-group input,
-.form-group select {
+.required {
+  color: #dc3545;
+  font-weight: 500;
+}
+
+.form-input,
+.form-select {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 12px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  background: white;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.form-input.error {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
 }
 
 .input-group {
   display: flex;
+  align-items: stretch;
+}
+
+.input-group .form-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+  flex: 1;
+}
+
+.input-addon {
+  padding: 12px 16px;
+  border: 2px solid #e1e5e9;
+  border-left: none;
+  background: #f8f9fa;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+}
+
+.input-addon:hover {
+  background: #e9ecef;
+}
+
+.field-help {
+  margin-top: 6px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 32px;
   align-items: center;
 }
 
-.api-key-input {
-  flex: 1;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.toggle-visibility {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-left: none;
-  background: #f8f9fa;
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
-  cursor: pointer;
-}
-
-.actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.actions button {
-  padding: 10px 20px;
+.btn {
+  padding: 12px 24px;
   border: none;
-  border-radius: 6px;
-  font-weight: 500;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  text-decoration: none;
 }
 
-.test-btn {
-  background: #6c757d;
-  color: white;
+.btn:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
 }
 
-.connect-btn {
-  background: #007bff;
-  color: white;
-}
-
-.disconnect-btn {
-  background: #dc3545;
-  color: white;
-}
-
-.test-chat-btn {
-  background: #28a745;
-  color: white;
-}
-
-.actions button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.actions button:disabled {
+.btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+  border: 1px solid #007bff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+  border-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: 1px solid #6c757d;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #545b62;
+  border-color: #545b62;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.2);
 }
 
 .connected-state {
-  background: #e7f5e7;
-  padding: 24px;
-  border-radius: 8px;
-  border: 1px solid #c3e6c3;
+  background: #f0fff4;
+  padding: 32px;
+  border-radius: 12px;
+  border: 1px solid #9ae6b4;
 }
 
-.connection-info {
+.connection-info h4 {
+  margin: 0 0 20px 0;
+  color: #2d6a2d;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #c3e6c3;
 }
 
 .info-item .label {
-  font-weight: 500;
+  font-weight: 600;
   color: #2d6a2d;
+  font-size: 14px;
 }
 
 .info-item .value {
   color: #333;
+  font-weight: 500;
+}
+
+/* Error handling */
+.error-message {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  
+  .header-content {
+    text-align: center;
+  }
+  
+  .status-indicator {
+    align-self: center;
+    min-width: auto;
+    justify-content: center;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .config-form,
+  .connected-state {
+    padding: 20px;
+  }
+  
+  .section-header h3 {
+    font-size: 20px;
+  }
+  
+  .section-description {
+    font-size: 14px;
+  }
+  
+  .status-indicator {
+    padding: 10px 12px;
+  }
 }
 
 .modal-overlay {
