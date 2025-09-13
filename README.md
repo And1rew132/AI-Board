@@ -21,6 +21,74 @@ AI Board is a TypeScript Vue Vite application for orchestrating multiple AI agen
 - Vite
 - Pinia (state management)
 
+## Testing
+
+This project includes comprehensive testing infrastructure for ensuring code quality and preventing regressions.
+
+### Running Tests
+
+```sh
+# Run all unit tests
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run E2E tests (requires browsers to be installed)
+npm run test:e2e
+
+# Run E2E tests with UI
+npm run test:e2e:ui
+```
+
+### Test Structure
+
+- **Unit Tests**: `tests/` directory with subdirectories for stores, services, and components
+- **E2E Tests**: `tests/e2e/` directory for end-to-end browser tests
+- **Test Utilities**: `tests/utils/test-helpers.ts` provides mock data and setup functions
+
+### Testing Tools
+
+- **Vitest**: Fast unit testing framework with TypeScript support
+- **@vue/test-utils**: Vue component testing utilities
+- **Playwright**: End-to-end testing across browsers
+- **Happy DOM**: Lightweight DOM implementation for unit tests
+
+### Test Coverage Goals
+
+- Stores: 90%+ coverage
+- Services: 85%+ coverage  
+- Components: 70%+ coverage
+- Critical user flows: 100% E2E coverage
+
+### Writing Tests
+
+Example unit test for a store:
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+import { useAgentStore } from '@/stores/agents'
+
+describe('Agent Store', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('creates an agent with correct data', () => {
+    const store = useAgentStore()
+    // ... test implementation
+  })
+})
+```
+
+For E2E tests, see `tests/e2e/basic-flows.spec.ts` for examples.
+
 ## Getting Started
 
 1. Install dependencies:
