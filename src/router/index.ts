@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import Home from '@/views/Home.vue'
+import ProjectManager from '@/views/ProjectManager.vue'
 import ProjectDetail from '@/views/ProjectDetail.vue'
 import AgentManager from '@/views/AgentManager.vue'
 import MCPManager from '@/views/MCPManager.vue'
@@ -17,6 +18,11 @@ const routes = [
         component: Home
       },
       {
+        path: 'projects',
+        name: 'ProjectManager',
+        component: ProjectManager
+      },
+      {
         path: 'project/:id',
         name: 'ProjectDetail',
         component: ProjectDetail,
@@ -26,12 +32,14 @@ const routes = [
       {
         path: 'projects/active',
         name: 'ProjectsActive',
-        component: Home // For now, reuse Home component
+        component: ProjectManager,
+        props: { filter: 'active' }
       },
       {
         path: 'projects/templates',
         name: 'ProjectsTemplates', 
-        component: Home // For now, reuse Home component
+        component: ProjectManager,
+        props: { filter: 'templates' }
       },
       // Agents section and sub-routes
       {
