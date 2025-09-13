@@ -14,6 +14,10 @@
         <span class="icon">🤖</span>
         Agents
       </router-link>
+      <router-link to="/orchestration" class="nav-item">
+        <span class="icon">🎯</span>
+        Business Center
+      </router-link>
       <router-link to="/mcp" class="nav-item">
         <span class="icon">🔌</span>
         MCP Integrations

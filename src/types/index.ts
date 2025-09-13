@@ -251,3 +251,173 @@ export interface AgentOpenAIConfig {
   autonomousPrompting: boolean;
   promptInterval: number; // minutes between autonomous prompts
 }
+
+// Agent Communication & Orchestration Types
+export interface AgentMessage {
+  id: string;
+  fromAgentId: string;
+  toAgentId: string;
+  type: 'task_request' | 'task_response' | 'data_share' | 'status_update' | 'collaboration_invite';
+  subject: string;
+  content: string;
+  data?: any;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'sent' | 'delivered' | 'read' | 'processing' | 'completed' | 'failed';
+  createdAt: Date;
+  deliveredAt?: Date;
+  readAt?: Date;
+  responseId?: string; // ID of response message
+}
+
+export interface AgentCommunicationChannel {
+  id: string;
+  name: string;
+  type: 'direct' | 'broadcast' | 'workflow' | 'business_process';
+  participants: string[]; // Agent IDs
+  isActive: boolean;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  description: string;
+  type: 'customer_service' | 'content_creation' | 'data_analysis' | 'custom';
+  category: 'sales' | 'marketing' | 'support' | 'operations' | 'finance' | 'hr' | 'general';
+  steps: WorkflowStep[];
+  triggers: WorkflowTrigger[];
+  isActive: boolean;
+  isTemplate: boolean;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  type: 'agent_task' | 'human_approval' | 'condition' | 'data_transform' | 'external_api';
+  agentRole?: string; // Required role/capability for agent assignment
+  agentId?: string; // Specific agent assignment (optional)
+  description: string;
+  config: WorkflowStepConfig;
+  dependencies: string[]; // Step IDs that must complete first
+  conditions?: WorkflowCondition[];
+  timeout?: number; // seconds
+  retryPolicy?: {
+    maxRetries: number;
+    retryDelay: number; // seconds
+  };
+}
+
+export interface WorkflowStepConfig {
+  input?: Record<string, any>;
+  output?: Record<string, any>;
+  prompt?: string;
+  requiredCapabilities?: string[];
+  approvers?: string[]; // For human approval steps
+  externalApiConfig?: {
+    url: string;
+    method: string;
+    headers?: Record<string, string>;
+    payload?: any;
+  };
+}
+
+export interface WorkflowCondition {
+  field: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'exists';
+  value: any;
+  nextStepId?: string; // Step to execute if condition is true
+}
+
+export interface WorkflowTrigger {
+  id: string;
+  type: 'manual' | 'schedule' | 'event' | 'webhook' | 'file_upload' | 'message';
+  config: {
+    schedule?: string; // cron expression
+    eventType?: string;
+    webhookUrl?: string;
+    conditions?: WorkflowCondition[];
+  };
+  isActive: boolean;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  workflowId: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  currentStepId?: string;
+  executionContext: Record<string, any>; // Data passed between steps
+  steps: WorkflowStepExecution[];
+  startedAt: Date;
+  completedAt?: Date;
+  triggeredBy: string; // Agent ID or 'system' or 'user'
+  errorMessage?: string;
+  metrics: {
+    totalSteps: number;
+    completedSteps: number;
+    failedSteps: number;
+    totalDuration?: number; // milliseconds
+  };
+}
+
+export interface WorkflowStepExecution {
+  stepId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  assignedAgentId?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  duration?: number; // milliseconds
+  input?: any;
+  output?: any;
+  errorMessage?: string;
+  retryCount: number;
+}
+
+export interface BusinessProcess {
+  id: string;
+  name: string;
+  description: string;
+  category: 'customer_onboarding' | 'support_ticket' | 'content_pipeline' | 'data_analysis' | 'custom';
+  workflowId: string;
+  isActive: boolean;
+  metrics: {
+    totalExecutions: number;
+    successRate: number;
+    averageDuration: number; // milliseconds
+    lastExecution?: Date;
+  };
+  configuration: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AgentCapabilityRegistry {
+  capability: string;
+  description: string;
+  agentIds: string[]; // Agents that have this capability
+  isCore: boolean; // Core capabilities vs custom ones
+  examples?: string[];
+  requiredConfig?: Record<string, any>;
+}
+
+export interface AgentOrchestrationMetrics {
+  totalMessages: number;
+  activeWorkflows: number;
+  completedWorkflows: number;
+  averageWorkflowDuration: number;
+  agentUtilization: Record<string, number>; // agentId -> utilization percentage
+  topPerformingAgents: Array<{
+    agentId: string;
+    score: number;
+    completedTasks: number;
+  }>;
+  businessProcessMetrics: Record<string, {
+    executions: number;
+    successRate: number;
+    averageDuration: number;
+  }>;
+}
