@@ -6,6 +6,7 @@ import ProjectDetail from '@/views/ProjectDetail.vue'
 import AgentManager from '@/views/AgentManager.vue'
 import MCPManager from '@/views/MCPManager.vue'
 import OrchestrationCenter from '@/views/OrchestrationCenter.vue'
+import BusinessCenter from '@/views/BusinessCenter.vue'
 
 const routes = [
   {
@@ -60,18 +61,22 @@ const routes = [
       // Orchestration section and sub-routes
       {
         path: 'orchestration',
-        name: 'OrchestrationCenter',
-        component: OrchestrationCenter
+        name: 'BusinessCenter',
+        component: BusinessCenter,
+        meta: { 
+          title: 'Business Center',
+          description: 'Orchestrate workflows and business processes'
+        }
       },
       {
         path: 'orchestration/workflows',
         name: 'OrchestrationWorkflows',
-        component: OrchestrationCenter // For now, reuse OrchestrationCenter
+        component: OrchestrationCenter // For now, reuse OrchestrationCenter for sub-routes
       },
       {
         path: 'orchestration/automation',
         name: 'OrchestrationAutomation',
-        component: OrchestrationCenter // For now, reuse OrchestrationCenter
+        component: OrchestrationCenter // For now, reuse OrchestrationCenter for sub-routes
       },
       // MCP/Integrations section and sub-routes
       {
