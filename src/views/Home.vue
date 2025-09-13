@@ -20,88 +20,84 @@
       </router-link>
     </nav>
 
-    <main class="main-content">
+    <UICard variant="elevated" class="main-content">
       <ProjectManager />
-    </main>
+    </UICard>
   </div>
 </template>
 
 <script setup lang="ts">
 import ProjectManager from '@/components/ProjectManager.vue'
+import { UICard } from '@/ui'
 </script>
 
 <style scoped>
 .home {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
 }
 
 .app-header {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-backdrop-blur);
   backdrop-filter: blur(10px);
-  padding: 2rem;
+  padding: var(--spacing-3xl);
   text-align: center;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 3rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-size: var(--font-size-5xl);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .subtitle {
-  margin: 0.5rem 0 0 0;
-  color: #666;
-  font-size: 1.2rem;
+  margin: var(--spacing-sm) 0 0 0;
+  color: var(--color-gray-600);
+  font-size: var(--font-size-xl);
 }
 
 .main-nav {
   display: flex;
   justify-content: center;
-  padding: 1rem;
-  gap: 1rem;
+  padding: var(--spacing-lg);
+  gap: var(--spacing-lg);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 25px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: var(--color-backdrop-blur);
+  border-radius: var(--border-radius-full);
   text-decoration: none;
-  color: #333;
-  font-weight: 500;
+  color: var(--color-gray-700);
+  font-weight: var(--font-weight-medium);
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .nav-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .nav-item.active {
   background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  color: var(--color-primary);
 }
 
 .icon {
-  font-size: 1.2rem;
+  font-size: var(--font-size-xl);
 }
 
 .main-content {
   max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  margin-top: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin: var(--spacing-3xl) auto;
+  margin-bottom: var(--spacing-3xl);
 }
 </style>
