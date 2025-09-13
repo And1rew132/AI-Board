@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import DashboardLayout from '@/components/DashboardLayout.vue'
 import Home from '@/views/Home.vue'
 import ProjectDetail from '@/views/ProjectDetail.vue'
 import AgentManager from '@/views/AgentManager.vue'
@@ -8,29 +9,79 @@ import OrchestrationCenter from '@/views/OrchestrationCenter.vue'
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: Home
-  },
-  {
-    path: '/project/:id',
-    name: 'ProjectDetail',
-    component: ProjectDetail,
-    props: true
-  },
-  {
-    path: '/agents',
-    name: 'AgentManager',
-    component: AgentManager
-  },
-  {
-    path: '/mcp',
-    name: 'MCPManager',
-    component: MCPManager
-  },
-  {
-    path: '/orchestration',
-    name: 'OrchestrationCenter',
-    component: OrchestrationCenter
+    component: DashboardLayout,
+    children: [
+      {
+        path: '',
+        name: 'Home',
+        component: Home
+      },
+      {
+        path: 'project/:id',
+        name: 'ProjectDetail',
+        component: ProjectDetail,
+        props: true
+      },
+      // Projects section sub-routes
+      {
+        path: 'projects/active',
+        name: 'ProjectsActive',
+        component: Home // For now, reuse Home component
+      },
+      {
+        path: 'projects/templates',
+        name: 'ProjectsTemplates', 
+        component: Home // For now, reuse Home component
+      },
+      // Agents section and sub-routes
+      {
+        path: 'agents',
+        name: 'AgentManager',
+        component: AgentManager
+      },
+      {
+        path: 'agents/performance',
+        name: 'AgentsPerformance',
+        component: AgentManager // For now, reuse AgentManager
+      },
+      {
+        path: 'agents/training',
+        name: 'AgentsTraining',
+        component: AgentManager // For now, reuse AgentManager
+      },
+      // Orchestration section and sub-routes
+      {
+        path: 'orchestration',
+        name: 'OrchestrationCenter',
+        component: OrchestrationCenter
+      },
+      {
+        path: 'orchestration/workflows',
+        name: 'OrchestrationWorkflows',
+        component: OrchestrationCenter // For now, reuse OrchestrationCenter
+      },
+      {
+        path: 'orchestration/automation',
+        name: 'OrchestrationAutomation',
+        component: OrchestrationCenter // For now, reuse OrchestrationCenter
+      },
+      // MCP/Integrations section and sub-routes
+      {
+        path: 'mcp',
+        name: 'MCPManager',
+        component: MCPManager
+      },
+      {
+        path: 'mcp/apis',
+        name: 'MCPApis',
+        component: MCPManager // For now, reuse MCPManager
+      },
+      {
+        path: 'mcp/webhooks',
+        name: 'MCPWebhooks',
+        component: MCPManager // For now, reuse MCPManager
+      }
+    ]
   }
 ]
 
