@@ -2,115 +2,117 @@
   <div class="project-manager">
     <div class="header">
       <h2>Projects</h2>
-      <button @click="showCreateDialog = true" class="btn-primary">
+      <UIButton @click="showCreateDialog = true">
         New Project
-      </button>
+      </UIButton>
     </div>
     
     <div class="filters">
-      <select v-model="selectedStatus" class="filter-select">
+      <UISelect 
+        v-model="selectedStatus" 
+        placeholder="All Projects"
+        class="filter-select"
+      >
         <option value="">All Projects</option>
         <option value="active">Active</option>
         <option value="paused">Paused</option>
         <option value="completed">Completed</option>
         <option value="archived">Archived</option>
-      </select>
+      </UISelect>
     </div>
 
     <div class="projects-grid">
-      <div 
+      <UICard 
         v-for="project in filteredProjects" 
         :key="project.id"
-        class="project-card"
+        variant="elevated"
         :class="{ active: currentProject?.id === project.id }"
         @click="selectProject(project)"
+        class="project-card"
       >
-        <div class="project-header">
-          <h3>{{ project.name }}</h3>
-          <span class="status-badge" :class="project.status">
-            {{ project.status }}
-          </span>
-        </div>
+        <template #header>
+          <div class="project-header">
+            <h3>{{ project.name }}</h3>
+            <UIBadge :variant="getStatusVariant(project.status)">
+              {{ project.status }}
+            </UIBadge>
+          </div>
+        </template>
         
         <p class="project-description">{{ project.description }}</p>
         
         <div class="project-stats">
-          <div class="stat">
-            <span class="label">Content:</span>
-            <span class="value">{{ project.content.length }}</span>
-          </div>
-          <div class="stat">
-            <span class="label">Agents:</span>
-            <span class="value">{{ project.agents.length }}</span>
-          </div>
+          <UIStatCard 
+            :value="project.content.length"
+            label="Content"
+            icon="📄"
+            variant="primary"
+          />
+          <UIStatCard 
+            :value="project.agents.length"
+            label="Agents"
+            icon="🤖"
+            variant="success"
+          />
         </div>
         
-        <div class="project-actions">
-          <button @click.stop="viewProject(project)" class="btn-view">
-            View
-          </button>
-          <button @click.stop="editProject(project)" class="btn-secondary">
-            Edit
-          </button>
-          <button @click.stop="deleteProject(project.id)" class="btn-danger">
-            Delete
-          </button>
-        </div>
-      </div>
+        <template #footer>
+          <div class="project-actions">
+            <UIButton @click.stop="viewProject(project)" variant="ghost" size="sm">
+              View
+            </UIButton>
+            <UIButton @click.stop="editProject(project)" variant="secondary" size="sm">
+              Edit
+            </UIButton>
+            <UIButton @click.stop="deleteProject(project.id)" variant="danger" size="sm">
+              Delete
+            </UIButton>
+          </div>
+        </template>
+      </UICard>
     </div>
 
     <!-- Create/Edit Project Dialog -->
-    <div v-if="showCreateDialog" class="modal-overlay" @click="closeDialog">
-      <div class="modal" @click.stop>
-        <h3>{{ editingProject ? 'Edit Project' : 'Create New Project' }}</h3>
-        
-        <form @submit.prevent="saveProject">
-          <div class="form-group">
-            <label for="projectName">Name:</label>
-            <input 
-              id="projectName"
-              v-model="projectForm.name" 
-              type="text" 
-              required 
-              class="form-input"
-            >
-          </div>
+    <UIModal 
+      v-model="showCreateDialog" 
+      :title="editingProject ? 'Edit Project' : 'Create New Project'"
+      size="md"
+    >
+      <form @submit.prevent="saveProject">
+        <div class="form-fields">
+          <UIInput 
+            v-model="projectForm.name"
+            label="Name"
+            required
+          />
           
-          <div class="form-group">
-            <label for="projectDescription">Description:</label>
-            <textarea 
-              id="projectDescription"
-              v-model="projectForm.description" 
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
+          <UITextarea 
+            v-model="projectForm.description"
+            label="Description"
+            :rows="3"
+          />
           
-          <div class="form-group">
-            <label for="projectStatus">Status:</label>
-            <select 
-              id="projectStatus"
-              v-model="projectForm.status" 
-              class="form-select"
-            >
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-              <option value="completed">Completed</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" @click="closeDialog" class="btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" class="btn-primary">
-              {{ editingProject ? 'Update' : 'Create' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <UISelect 
+            v-model="projectForm.status"
+            label="Status"
+          >
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </UISelect>
+        </div>
+      </form>
+      
+      <template #footer>
+        <UIButton @click="closeDialog" variant="secondary">
+          Cancel
+        </UIButton>
+        <UIButton @click="saveProject">
+          {{ editingProject ? 'Update' : 'Create' }}
+        </UIButton>
+      </template>
+    </UIModal>
   </div>
 </template>
 
@@ -118,6 +120,7 @@
 import { ref, computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProjectStore } from '@/stores/projects';
+import { UIButton, UICard, UIModal, UIInput, UITextarea, UISelect, UIBadge, UIStatCard } from '@/ui';
 import type { Project } from '@/types';
 
 const router = useRouter();
@@ -141,6 +144,16 @@ const filteredProjects = computed(() => {
 });
 
 const currentProject = computed(() => projectStore.currentProject);
+
+function getStatusVariant(status: Project['status']) {
+  switch (status) {
+    case 'active': return 'success'
+    case 'paused': return 'warning'
+    case 'completed': return 'primary'
+    case 'archived': return 'gray'
+    default: return 'gray'
+  }
+}
 
 function selectProject(project: Project) {
   projectStore.setCurrentProject(project);
@@ -194,189 +207,104 @@ function closeDialog() {
 
 <style scoped>
 .project-manager {
-  padding: 1rem;
+  padding: var(--spacing-lg);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-xl);
+}
+
+.header h2 {
+  margin: 0;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
 }
 
 .filters {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-xl);
 }
 
 .filter-select {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  max-width: 200px;
 }
 
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--spacing-xl);
 }
 
 .project-card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 
 .project-card:hover {
-  border-color: #007bff;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+  transform: translateY(-4px);
 }
 
 .project-card.active {
-  border-color: #007bff;
-  background-color: #f8f9fa;
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .project-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .project-header h3 {
   margin: 0;
-  font-size: 1.1rem;
-}
-
-.status-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.status-badge.active {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.status-badge.paused {
-  background-color: #fff3cd;
-  color: #856404;
-}
-
-.status-badge.completed {
-  background-color: #d1ecf1;
-  color: #0c5460;
-}
-
-.status-badge.archived {
-  background-color: #e2e3e5;
-  color: #383d41;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .project-description {
-  color: #666;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
+  color: var(--color-gray-600);
+  margin-bottom: var(--spacing-lg);
+  line-height: var(--line-height-relaxed);
 }
 
 .project-stats {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.stat {
-  font-size: 0.85rem;
-}
-
-.stat .label {
-  color: #666;
-}
-
-.stat .value {
-  font-weight: 500;
-  margin-left: 0.25rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
 }
 
 .project-actions {
   display: flex;
-  gap: 0.5rem;
-}
-
-.btn-primary, .btn-secondary, .btn-danger, .btn-view {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.btn-primary {
-  background-color: #007bff;
-  color: white;
-}
-
-.btn-view {
-  background-color: #17a2b8;
-  color: white;
-}
-
-.btn-secondary {
-  background-color: #6c757d;
-  color: white;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  color: white;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-weight: 500;
-}
-
-.form-input, .form-textarea, .form-select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.form-actions {
-  display: flex;
+  gap: var(--spacing-sm);
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 2rem;
+}
+
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .projects-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+  
+  .project-stats {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
+  
+  .project-actions {
+    flex-direction: column;
+  }
 }
 </style>

@@ -1,178 +1,202 @@
 <template>
   <div class="agent-manager">
-    <header class="page-header">
-      <button @click="$router.back()" class="back-btn">
-        ← Back
-      </button>
-      <h1>Agent Manager</h1>
-      <button @click="showCreateDialog = true" class="btn-primary">
-        New Agent
-      </button>
-    </header>
+    <UICard variant="elevated" class="page-header">
+      <template #header>
+        <div class="header-content">
+          <UIButton @click="$router.back()" variant="ghost" size="sm">
+            ← Back
+          </UIButton>
+          <h1>Agent Manager</h1>
+          <UIButton @click="showCreateDialog = true">
+            New Agent
+          </UIButton>
+        </div>
+      </template>
+    </UICard>
 
-    <div class="agent-content">
+    <UICard variant="elevated" class="agent-content">
       <div class="agents-grid">
-        <div 
+        <UICard 
           v-for="agent in agentStore.agents" 
           :key="agent.id"
+          variant="outlined"
           class="agent-card"
-          :class="agent.status"
         >
-          <div class="agent-header">
-            <h3>{{ agent.name }}</h3>
-            <span class="status-indicator" :class="agent.status">
-              {{ agent.status }}
-            </span>
-          </div>
+          <template #header>
+            <div class="agent-header">
+              <h3>{{ agent.name }}</h3>
+              <UIBadge :variant="getStatusVariant(agent.status)">
+                {{ agent.status }}
+              </UIBadge>
+            </div>
+          </template>
           
           <p class="agent-description">{{ agent.description }}</p>
           
-          <div class="agent-details">
-            <div class="detail-item">
-              <span class="label">Type:</span>
-              <span class="value">{{ agent.type }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Projects:</span>
-              <span class="value">{{ agent.projects.length }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Last Activity:</span>
-              <span class="value">{{ formatDate(agent.lastActivity) }}</span>
-            </div>
-          </div>
+          <UIInfoGrid :items="[
+            { label: 'Type', value: agent.type },
+            { label: 'Projects', value: agent.projects.length.toString() },
+            { label: 'Last Activity', value: formatDate(agent.lastActivity) }
+          ]" class="agent-details" />
           
           <div class="capabilities">
             <h4>Capabilities:</h4>
             <div class="capability-tags">
-              <span 
+              <UIBadge
                 v-for="capability in agent.capabilities.filter(c => c.enabled)" 
                 :key="capability.type"
-                class="capability-tag"
+                variant="success"
+                size="sm"
               >
                 {{ capability.type.replace('_', ' ') }}
-              </span>
+              </UIBadge>
             </div>
           </div>
           
-          <div class="agent-actions">
-            <button @click="editAgent(agent)" class="btn-edit">
-              Edit
-            </button>
-            <button @click="deleteAgent(agent.id)" class="btn-danger">
-              Delete
-            </button>
-          </div>
-        </div>
+          <template #footer>
+            <div class="agent-actions">
+              <UIButton @click="editAgent(agent)" variant="secondary" size="sm">
+                Edit
+              </UIButton>
+              <UIButton @click="deleteAgent(agent.id)" variant="danger" size="sm">
+                Delete
+              </UIButton>
+            </div>
+          </template>
+        </UICard>
       </div>
 
       <p v-if="agentStore.agents.length === 0" class="no-agents">
         No agents created yet. Create your first agent to get started!
       </p>
-    </div>
+    </UICard>
 
     <!-- Create/Edit Agent Dialog -->
-    <div v-if="showCreateDialog" class="modal-overlay" @click="closeDialog">
-      <div class="modal" @click.stop>
-        <h3>{{ editingAgent ? 'Edit Agent' : 'Create New Agent' }}</h3>
-        
-        <form @submit.prevent="saveAgent">
-          <div class="form-group">
-            <label for="agentName">Name:</label>
-            <input 
-              id="agentName"
-              v-model="agentForm.name" 
-              type="text" 
-              required 
-              class="form-input"
-            >
-          </div>
+    <UIModal 
+      v-model="showCreateDialog"
+      :title="editingAgent ? 'Edit Agent' : 'Create New Agent'"
+      size="lg"
+    >
+      <form @submit.prevent="saveAgent">
+        <div class="form-fields">
+          <UIInput 
+            v-model="agentForm.name"
+            label="Name"
+            required
+          />
           
-          <div class="form-group">
-            <label for="agentDescription">Description:</label>
-            <textarea 
-              id="agentDescription"
-              v-model="agentForm.description" 
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
+          <UITextarea 
+            v-model="agentForm.description"
+            label="Description"
+            :rows="3"
+          />
           
-          <div class="form-group">
-            <label for="agentType">Type:</label>
-            <select 
-              id="agentType"
-              v-model="agentForm.type" 
-              class="form-select"
-            >
-              <option value="autonomous">Autonomous</option>
-              <option value="reactive">Reactive</option>
-              <option value="collaborative">Collaborative</option>
-            </select>
-          </div>
+          <UISelect 
+            v-model="agentForm.type"
+            label="Type"
+          >
+            <option value="autonomous">Autonomous</option>
+            <option value="reactive">Reactive</option>
+            <option value="collaborative">Collaborative</option>
+          </UISelect>
           
-          <div class="form-group">
-            <label for="agentStatus">Status:</label>
-            <select 
-              id="agentStatus"
-              v-model="agentForm.status" 
-              class="form-select"
-            >
-              <option value="active">Active</option>
-              <option value="idle">Idle</option>
-              <option value="offline">Offline</option>
-            </select>
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" @click="closeDialog" class="btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" class="btn-primary">
-              {{ editingAgent ? 'Update' : 'Create' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <UISelect 
+            v-model="agentForm.status"
+            label="Status"
+          >
+            <option value="active">Active</option>
+            <option value="idle">Idle</option>
+            <option value="offline">Offline</option>
+          </UISelect>
+        </div>
+      </form>
+      
+      <template #footer>
+        <UIButton @click="closeDialog" variant="secondary">
+          Cancel
+        </UIButton>
+        <UIButton @click="saveAgent">
+          {{ editingAgent ? 'Update' : 'Create' }}
+        </UIButton>
+      </template>
+    </UIModal>
 
     <!-- Agent Templates & AI Generator -->
-    <section class="agent-templates">
-      <h2>Agent Templates</h2>
+    <UICard variant="elevated" class="agent-templates">
+      <template #header>
+        <h2>Agent Templates</h2>
+      </template>
+      
       <div class="template-list">
-        <button v-for="template in agentTemplates" :key="template.id" @click="selectTemplate(template)" class="btn-secondary">
+        <UIButton 
+          v-for="template in agentTemplates" 
+          :key="template.id" 
+          @click="selectTemplate(template)" 
+          variant="ghost"
+          class="template-btn"
+        >
           {{ template.name }}
-        </button>
+        </UIButton>
       </div>
-      <button class="btn-primary" @click="showAIGenerator = true">Generate Agent with OpenAI</button>
-    </section>
+      
+      <UIButton @click="showAIGenerator = true" variant="success" class="ai-generator-btn">
+        Generate Agent with OpenAI
+      </UIButton>
+    </UICard>
 
-    <div v-if="showAIGenerator" class="ai-generator-modal">
-      <h3>Generate Agent with OpenAI</h3>
+    <!-- AI Generator Modal -->
+    <UIModal 
+      v-model="showAIGenerator"
+      title="Generate Agent with OpenAI"
+      size="lg"
+    >
       <form @submit.prevent="generateAgent">
-        <label for="agentPrompt">Describe the agent you want:</label>
-        <textarea id="agentPrompt" v-model="agentPrompt" rows="4" class="form-textarea"></textarea>
-        <button type="submit" class="btn-primary">Generate</button>
-        <button type="button" class="btn-secondary" @click="showAIGenerator = false">Cancel</button>
+        <UITextarea 
+          v-model="agentPrompt"
+          label="Describe the agent you want"
+          :rows="4"
+          placeholder="e.g., A research agent that can analyze data and write reports..."
+        />
+        
+        <div v-if="aiAgentResult" class="generated-result">
+          <h4>Generated Agent:</h4>
+          <pre>{{ aiAgentResult }}</pre>
+        </div>
       </form>
-      <div v-if="aiAgentResult">
-        <h4>Generated Agent:</h4>
-        <pre>{{ aiAgentResult }}</pre>
-        <button class="btn-primary" @click="addGeneratedAgent">Add Agent</button>
-      </div>
-    </div>
+      
+      <template #footer>
+        <UIButton @click="showAIGenerator = false" variant="secondary">
+          Cancel
+        </UIButton>
+        <UIButton @click="generateAgent" variant="primary" :loading="isGenerating">
+          Generate
+        </UIButton>
+        <UIButton 
+          v-if="aiAgentResult" 
+          @click="addGeneratedAgent" 
+          variant="success"
+        >
+          Add Agent
+        </UIButton>
+      </template>
+    </UIModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useAgentStore } from '@/stores/agents'
+import { UIButton, UICard, UIModal, UIInput, UITextarea, UISelect, UIBadge, UIInfoGrid } from '@/ui'
 import type { Agent } from '@/types'
 
 const agentStore = useAgentStore()
 
 const showCreateDialog = ref(false)
+const showAIGenerator = ref(false)
 const editingAgent = ref<Agent | null>(null)
+const agentPrompt = ref('')
+const aiAgentResult = ref('')
+const isGenerating = ref(false)
 
 const agentForm = reactive({
   name: '',
@@ -180,6 +204,15 @@ const agentForm = reactive({
   type: 'autonomous' as Agent['type'],
   status: 'active' as Agent['status'],
 })
+
+function getStatusVariant(status: Agent['status']) {
+  switch (status) {
+    case 'active': return 'success'
+    case 'idle': return 'warning'
+    case 'offline': return 'danger'
+    default: return 'gray'
+  }
+}
 
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString('en-US', {
@@ -251,7 +284,6 @@ function closeDialog() {
   agentForm.type = 'autonomous'
   agentForm.status = 'active'
 }
-
 
 // Agent templates
 const agentTemplates = [
@@ -329,13 +361,7 @@ const agentTemplates = [
   }
 ]
 
-const showAIGenerator = ref(false)
-const agentPrompt = ref('')
-const aiAgentResult = ref('')
-let selectedTemplate = ref<any>(null)
-
 function selectTemplate(template: any) {
-  selectedTemplate.value = template
   agentStore.createAgent({
     ...template,
     name: template.name,
@@ -350,6 +376,7 @@ function selectTemplate(template: any) {
 }
 
 async function generateAgent() {
+  isGenerating.value = true
   aiAgentResult.value = 'Generating...'
   try {
     const response = await agentStore.generateAutonomousPrompt({
@@ -378,6 +405,8 @@ async function generateAgent() {
     aiAgentResult.value = response.content
   } catch (error) {
     aiAgentResult.value = 'Failed to generate agent: ' + error
+  } finally {
+    isGenerating.value = false
   }
 }
 
@@ -397,42 +426,27 @@ function addGeneratedAgent() {
 <style scoped>
 .agent-manager {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1rem;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  padding: var(--spacing-lg);
 }
 
 .page-header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  padding: 2rem;
-  border-radius: 15px;
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-xl);
+}
+
+.header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--spacing-lg);
+  width: 100%;
 }
 
-.back-btn {
-  background: rgba(102, 126, 234, 0.1);
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 25px;
-  cursor: pointer;
-  font-weight: 500;
-  color: #667eea;
-  transition: all 0.3s ease;
-}
-
-.back-btn:hover {
-  background: rgba(102, 126, 234, 0.2);
-}
-
-.page-header h1 {
+.header-content h1 {
   margin: 0;
-  font-size: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-size: var(--font-size-2xl);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -440,357 +454,160 @@ function addGeneratedAgent() {
 }
 
 .agent-content {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin-bottom: var(--spacing-xl);
 }
 
 .agents-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1.5rem;
+  gap: var(--spacing-xl);
 }
 
 .agent-card {
-  background: white;
-  border-radius: 15px;
-  padding: 2rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
-  border-left: 4px solid #ddd;
-}
-
-.agent-card.active {
-  border-left-color: #28a745;
-}
-
-.agent-card.busy {
-  border-left-color: #ffc107;
-}
-
-.agent-card.idle {
-  border-left-color: #6c757d;
-}
-
-.agent-card.offline {
-  border-left-color: #dc3545;
 }
 
 .agent-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
 }
 
 .agent-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .agent-header h3 {
   margin: 0;
-  color: #333;
-  font-size: 1.3rem;
-}
-
-.status-indicator {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.status-indicator.active {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-indicator.busy {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.status-indicator.idle {
-  background: #e2e3e5;
-  color: #383d41;
-}
-
-.status-indicator.offline {
-  background: #f8d7da;
-  color: #721c24;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .agent-description {
-  color: #666;
-  margin-bottom: 1.5rem;
-  line-height: 1.5;
+  color: var(--color-gray-600);
+  margin-bottom: var(--spacing-lg);
+  line-height: var(--line-height-relaxed);
 }
 
 .agent-details {
-  background: rgba(102, 126, 234, 0.05);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-lg);
 }
 
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
-}
-
-.detail-item:last-child {
-  margin-bottom: 0;
-}
-
-.detail-item .label {
-  font-weight: 500;
-  color: #666;
-}
-
-.detail-item .value {
-  color: #333;
-  font-weight: 600;
+.capabilities {
+  margin-bottom: var(--spacing-lg);
 }
 
 .capabilities h4 {
-  margin: 0 0 0.75rem 0;
-  color: #333;
-  font-size: 1rem;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
 }
 
 .capability-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.capability-tag {
-  padding: 0.4rem 0.8rem;
-  background: rgba(40, 167, 69, 0.1);
-  color: #28a745;
-  border-radius: 15px;
-  font-size: 0.8rem;
-  font-weight: 500;
+  gap: var(--spacing-sm);
 }
 
 .agent-actions {
   display: flex;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #eee;
-}
-
-.btn-edit, .btn-danger {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 25px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.btn-edit {
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
-}
-
-.btn-danger {
-  background: rgba(220, 53, 69, 0.1);
-  color: #dc3545;
-}
-
-.btn-edit:hover, .btn-danger:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
 }
 
 .no-agents {
   text-align: center;
-  color: #666;
-  padding: 3rem;
+  color: var(--color-gray-600);
+  padding: var(--spacing-5xl);
   background: rgba(0, 0, 0, 0.02);
-  border-radius: 15px;
-  font-size: 1.1rem;
+  border-radius: var(--border-radius-lg);
+  font-size: var(--font-size-lg);
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+.form-fields {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 15px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.modal h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.form-input, .form-textarea, .form-select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
-}
-
-.form-input:focus, .form-textarea:focus, .form-select:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #eee;
-}
-
-.btn-primary, .btn-secondary {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 25px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.btn-primary {
-  background: #667eea;
-  color: white;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-primary:hover, .btn-secondary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  flex-direction: column;
+  gap: var(--spacing-lg);
 }
 
 .agent-templates {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 2rem;
-  margin-top: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin-top: var(--spacing-xl);
+}
+
+.agent-templates h2 {
+  margin: 0 0 var(--spacing-lg) 0;
+  color: var(--color-gray-800);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
 }
 
 .template-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
 }
 
-.btn-secondary {
+.template-btn {
   flex: 1;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 25px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  background: rgba(108, 117, 125, 0.1);
-  color: #6c757d;
+  min-width: 200px;
 }
 
-.btn-secondary:hover {
-  background: rgba(108, 117, 125, 0.2);
-}
-
-.ai-generator-modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 15px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1001;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-}
-
-.ai-generator-modal h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.5rem;
-}
-
-.ai-generator-modal label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.ai-generator-modal .form-textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
-}
-
-.ai-generator-modal .form-textarea:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.ai-generator-modal .btn-primary {
+.ai-generator-btn {
   width: 100%;
 }
 
-.ai-generator-modal .generated-agent {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 8px;
-  margin-top: 1rem;
+.generated-result {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: var(--color-gray-50);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-gray-200);
+}
+
+.generated-result h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--color-gray-800);
+}
+
+.generated-result pre {
+  background: var(--color-white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-gray-200);
   white-space: pre-wrap;
   word-wrap: break-word;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .agents-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+  
+  .agent-actions {
+    flex-direction: column;
+  }
+  
+  .template-list {
+    flex-direction: column;
+  }
+  
+  .template-btn {
+    min-width: auto;
+  }
 }
 </style>

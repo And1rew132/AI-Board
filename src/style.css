@@ -1,0 +1,12 @@
+/* Import UI System Design Tokens */
+@import './ui/tokens/design-tokens.css';
+
+/* Base application styles */
+body {
+  font-family: var(--font-family-sans);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-800);
+  background: var(--color-gray-50);
+  margin: 0;
+  padding: 0;
+}
