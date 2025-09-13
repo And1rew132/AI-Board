@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { Project, ProjectContent, ProjectTask, TaskComment } from '@/types';
+import { GitHubProjectIntegrationService } from '@/services/github-project-integration';
 
 export const useProjectStore = defineStore('projects', () => {
   const projects = ref<Project[]>([]);
   const currentProject = ref<Project | null>(null);
+  const githubIntegrationService = new GitHubProjectIntegrationService();
 
   const activeProjects = computed(() => 
     projects.value.filter((p: Project) => p.status === 'active')
@@ -224,6 +226,112 @@ export const useProjectStore = defineStore('projects', () => {
     };
   }
 
+  // GitHub Integration functions
+  async function connectProjectToGitHub(projectId: string, repositoryUrl: string, accessToken: string) {
+    const project = projects.value.find((p: Project) => p.id === projectId);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    try {
+      const integration = await githubIntegrationService.connectProjectToRepository(
+        project, 
+        repositoryUrl, 
+        accessToken
+      );
+
+      updateProject(projectId, { 
+        githubIntegration: integration 
+      });
+
+      return integration;
+    } catch (error) {
+      console.error('Failed to connect project to GitHub:', error);
+      throw error;
+    }
+  }
+
+  async function syncProjectWithGitHub(projectId: string) {
+    const project = projects.value.find((p: Project) => p.id === projectId);
+    if (!project || !project.githubIntegration) {
+      throw new Error('Project not found or not connected to GitHub');
+    }
+
+    try {
+      const syncedTasks = await githubIntegrationService.syncIssues(
+        project, 
+        project.githubIntegration
+      );
+
+      // Update or add tasks
+      syncedTasks.forEach(task => {
+        const existingTaskIndex = project.tasks.findIndex(t => t.id === task.id);
+        if (existingTaskIndex !== -1) {
+          project.tasks[existingTaskIndex] = task;
+        } else {
+          project.tasks.push(task);
+        }
+      });
+
+      // Update last sync time
+      updateProject(projectId, {
+        githubIntegration: {
+          ...project.githubIntegration,
+          lastSync: new Date()
+        }
+      });
+
+      return syncedTasks;
+    } catch (error) {
+      console.error('Failed to sync with GitHub:', error);
+      throw error;
+    }
+  }
+
+  async function createGitHubIssueFromTask(projectId: string, taskId: string) {
+    const project = projects.value.find((p: Project) => p.id === projectId);
+    if (!project || !project.githubIntegration) {
+      throw new Error('Project not found or not connected to GitHub');
+    }
+
+    const task = project.tasks.find(t => t.id === taskId);
+    if (!task) {
+      throw new Error('Task not found');
+    }
+
+    try {
+      const issue = await githubIntegrationService.createIssueFromTask(
+        task, 
+        project.githubIntegration
+      );
+
+      // Update task with GitHub issue link
+      updateTask(projectId, taskId, {
+        githubIssue: {
+          issueNumber: issue.number,
+          issueUrl: issue.html_url,
+          lastSyncAt: new Date(),
+          syncDirection: 'project_to_github'
+        }
+      });
+
+      return issue;
+    } catch (error) {
+      console.error('Failed to create GitHub issue:', error);
+      throw error;
+    }
+  }
+
+  function disconnectProjectFromGitHub(projectId: string) {
+    updateProject(projectId, { 
+      githubIntegration: undefined 
+    });
+  }
+
+  function getProjectsWithGitHubIntegration() {
+    return projects.value.filter((p: Project) => p.githubIntegration);
+  }
+
   function generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
@@ -249,6 +357,12 @@ export const useProjectStore = defineStore('projects', () => {
     getTasksByAssignee,
     getTasksByPriority,
     getTaskStatistics,
+    // GitHub integration
+    connectProjectToGitHub,
+    syncProjectWithGitHub,
+    createGitHubIssueFromTask,
+    disconnectProjectFromGitHub,
+    getProjectsWithGitHubIntegration,
   };
 }, {
   persist: true

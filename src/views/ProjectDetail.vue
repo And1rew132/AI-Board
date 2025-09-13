@@ -53,6 +53,14 @@
           🤖 Agents
           <span class="tab-badge">{{ project.agents.length }}</span>
         </button>
+        <button 
+          @click="activeTab = 'github'" 
+          :class="{ active: activeTab === 'github' }"
+          class="tab-btn"
+        >
+          🐙 GitHub
+          <span v-if="project.githubIntegration" class="tab-badge connected">●</span>
+        </button>
       </div>
 
       <div class="tab-content">
@@ -243,6 +251,11 @@
             </div>
           </div>
         </div>
+
+        <!-- GitHub Tab -->
+        <div v-if="activeTab === 'github'" class="tab-panel">
+          <GitHubProjectConnection :project="project" />
+        </div>
       </div>
     </div>
 
@@ -324,6 +337,7 @@ import { useRoute } from 'vue-router'
 import { useProjectStore } from '@/stores/projects'
 import { useAgentStore } from '@/stores/agents'
 import TaskManager from '@/components/TaskManager.vue'
+import GitHubProjectConnection from '@/components/GitHubProjectConnection.vue'
 import { openAIService } from '@/services/openai'
 import type { ProjectContent } from '@/types'
 
@@ -972,5 +986,10 @@ onMounted(() => {
     grid-template-columns: 1fr;
     gap: 0.75rem;
   }
+}
+
+.tab-badge.connected {
+  color: #28a745;
+  font-weight: bold;
 }
 </style>
