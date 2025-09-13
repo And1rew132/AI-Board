@@ -190,7 +190,7 @@
       </div>
     </div>
 
-    <!-- Workflow Templates -->
+    <!-- Templates section -->
     <div class="templates-section">
       <h2>📋 Quick Start Templates</h2>
       <div class="template-grid">
@@ -213,6 +213,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Business Automation Demo -->
+    <BusinessAutomationDemo />
 
     <!-- Selected Execution Details Modal -->
     <div v-if="selectedExecution" class="modal-overlay" @click="selectedExecution = null">
@@ -298,6 +301,7 @@ import { useAgentStore } from '@/stores/agents';
 import type { WorkflowExecution } from '@/types';
 import WorkflowCreator from './WorkflowCreator.vue';
 import BusinessProcessCreator from './BusinessProcessCreator.vue';
+import BusinessAutomationDemo from './BusinessAutomationDemo.vue';
 
 const orchestrationStore = useOrchestrationStore();
 const agentStore = useAgentStore();
@@ -403,6 +407,8 @@ function onProcessCreated() {
 
 // Lifecycle
 onMounted(() => {
+  // Initialize demo data for demonstration
+  orchestrationStore.initializeDemoData();
   refreshData();
   
   // Auto-refresh every 10 seconds

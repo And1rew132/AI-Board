@@ -445,6 +445,93 @@ export const useOrchestrationStore = defineStore('orchestration', () => {
     ];
   }
   
+  // Initialize with some demo agents and capabilities for demonstration
+  function initializeDemoData() {
+    // Register core capabilities
+    const coreCapabilities = [
+      {
+        capability: 'content_creation',
+        description: 'Generate and create written content, articles, and documentation',
+        agentIds: [],
+        isCore: true,
+        examples: ['Blog posts', 'Technical documentation', 'Marketing copy']
+      },
+      {
+        capability: 'code_generation',
+        description: 'Generate, review, and modify source code',
+        agentIds: [],
+        isCore: true,
+        examples: ['API development', 'Bug fixes', 'Feature implementation']
+      },
+      {
+        capability: 'analysis',
+        description: 'Analyze data, documents, and perform research',
+        agentIds: [],
+        isCore: true,
+        examples: ['Data analysis', 'Market research', 'Performance evaluation']
+      },
+      {
+        capability: 'api_integration',
+        description: 'Integrate with external APIs and services',
+        agentIds: [],
+        isCore: true,
+        examples: ['REST API calls', 'Database queries', 'Third-party integrations']
+      },
+      {
+        capability: 'file_management',
+        description: 'Create, modify, and organize files and documents',
+        agentIds: [],
+        isCore: true,
+        examples: ['File organization', 'Document generation', 'Data import/export']
+      }
+    ];
+    
+    capabilityRegistry.value = coreCapabilities;
+    
+    // Create some demo workflows
+    createWorkflowFromTemplate('Customer Support Ticket');
+    createWorkflowFromTemplate('Content Creation Pipeline');
+    
+    // Simulate some agent activity for demonstration
+    setTimeout(() => {
+      // Add some sample messages
+      sendMessage({
+        fromAgentId: 'demo-content-agent',
+        toAgentId: 'demo-analysis-agent',
+        type: 'task_request',
+        subject: 'Content Research Request',
+        content: 'Please research the latest trends in AI automation for our upcoming blog post',
+        priority: 'medium'
+      });
+      
+      sendMessage({
+        fromAgentId: 'demo-analysis-agent',
+        toAgentId: 'demo-content-agent',
+        type: 'task_response',
+        subject: 'Research Complete',
+        content: 'Research completed. Found 5 key trends in AI automation. Data attached.',
+        priority: 'medium'
+      });
+      
+      sendMessage({
+        fromAgentId: 'orchestrator',
+        toAgentId: 'demo-developer-agent',
+        type: 'task_request',
+        subject: 'API Integration Task',
+        content: 'Integrate new customer feedback API with our workflow system',
+        priority: 'high'
+      });
+      
+      // Register demo agents with capabilities
+      registerAgentCapability('demo-content-agent', 'content_creation', 'Specialized content creation agent');
+      registerAgentCapability('demo-analysis-agent', 'analysis', 'Data analysis and research specialist');
+      registerAgentCapability('demo-developer-agent', 'code_generation', 'Full-stack development agent');
+      registerAgentCapability('demo-developer-agent', 'api_integration', 'API integration specialist');
+      
+      refreshMetrics();
+    }, 1000);
+  }
+  
   async function createWorkflowFromTemplate(templateName: string, customizations: Record<string, any> = {}) {
     const templates = getWorkflowTemplates();
     const template = templates.find(t => t.name === templateName);
@@ -496,6 +583,7 @@ export const useOrchestrationStore = defineStore('orchestration', () => {
     refreshMetrics,
     syncData,
     getWorkflowTemplates,
-    createWorkflowFromTemplate
+    createWorkflowFromTemplate,
+    initializeDemoData
   };
 });
