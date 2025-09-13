@@ -10,6 +10,10 @@
         <span class="icon">🏠</span>
         Projects
       </router-link>
+      <router-link to="/business" class="nav-item">
+        <span class="icon">🏢</span>
+        Business Dashboard
+      </router-link>
       <router-link to="/agents" class="nav-item">
         <span class="icon">🤖</span>
         Agents
