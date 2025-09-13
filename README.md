@@ -32,6 +32,19 @@ AI Board is a TypeScript Vue Vite application for orchestrating multiple AI agen
     npm run dev
     ```
 
+## Deployment
+
+The application is automatically deployed to GitHub Pages when changes are pushed to the main branch. 
+
+- **Live Application**: https://and1rew132.github.io/AI-Board/
+- **CI/CD Documentation**: See [docs/CICD_PIPELINE.md](docs/CICD_PIPELINE.md) for details
+
+To build for production locally:
+```sh
+npm run build
+npm run preview
+```
+
 ## Development Guidelines
 
 - Use TypeScript for type safety
