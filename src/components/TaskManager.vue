@@ -411,7 +411,7 @@
 import { ref, computed, reactive, watch } from 'vue'
 import { useProjectStore } from '@/stores/projects'
 import { useAgentStore } from '@/stores/agents'
-import type { ProjectTask, TaskComment } from '@/types'
+import type { ProjectTask } from '@/types'
 
 interface Props {
   projectId: string
