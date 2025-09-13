@@ -11,6 +11,7 @@ export interface Project {
   content: ProjectContent[];
   tasks: ProjectTask[]; // Project tasks (Jira-like tickets)
   storageConfig?: StorageConfig;
+  githubIntegration?: GitHubProjectIntegration;
 }
 
 export interface ProjectContent {
@@ -47,6 +48,7 @@ export interface ProjectTask {
   createdBy: string; // Agent ID or 'user'
   completedAt?: Date;
   blockedReason?: string;
+  githubIssue?: GitHubIssueLink; // Link to GitHub issue if synced
 }
 
 export interface TaskComment {
@@ -172,6 +174,20 @@ export interface GitHubIntegration {
   accessToken?: string;
 }
 
+export interface GitHubProjectIntegration {
+  repositoryUrl: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  accessToken?: string;
+  syncEnabled: boolean;
+  lastSync?: Date;
+  readme?: string;
+  issuesSyncEnabled: boolean;
+  autoCreateIssues: boolean;
+  agentInterval?: number; // minutes between AI agent issue creation
+}
+
 export interface GitHubSyncTask {
   id: string;
   integrationId: string;
@@ -185,6 +201,26 @@ export interface GitHubSyncTask {
     modified: string[];
     deleted: string[];
   };
+}
+
+export interface GitHubIssueLink {
+  issueNumber: number;
+  issueUrl: string;
+  lastSyncAt: Date;
+  syncDirection: 'github_to_project' | 'project_to_github' | 'bidirectional';
+}
+
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  body: string;
+  state: 'open' | 'closed';
+  labels: string[];
+  assignee?: string;
+  created_at: string;
+  updated_at: string;
+  closed_at?: string;
+  html_url: string;
 }
 
 // OpenAI Integration types

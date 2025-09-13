@@ -1,4 +1,4 @@
-import type { MCPEndpoint } from '@/types';
+import type { MCPEndpoint, GitHubIssue } from '@/types';
 import { MCPService } from './mcp';
 
 export interface GitHubRepository {
@@ -328,6 +328,122 @@ export class GitHubMCPService extends MCPService {
     return this.connected && this.githubToken !== null;
   }
 
+  async listIssues(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'open'): Promise<GitHubIssue[]> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues?state=${state}&per_page=100`, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const issues = await response.json();
+      return issues.filter((issue: any) => !issue.pull_request).map((issue: any) => ({
+        number: issue.number,
+        title: issue.title,
+        body: issue.body || '',
+        state: issue.state,
+        labels: issue.labels.map((label: any) => label.name),
+        assignee: issue.assignee?.login,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        closed_at: issue.closed_at,
+        html_url: issue.html_url
+      }));
+    } catch (error) {
+      console.error('Failed to list issues:', error);
+      throw error;
+    }
+  }
+
+  async createIssue(owner: string, repo: string, title: string, body: string, labels?: string[]): Promise<GitHubIssue> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
+    }
+
+    try {
+      const issueData: any = {
+        title,
+        body
+      };
+
+      if (labels && labels.length > 0) {
+        issueData.labels = labels;
+      }
+
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(issueData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const issue = await response.json();
+      return {
+        number: issue.number,
+        title: issue.title,
+        body: issue.body || '',
+        state: issue.state,
+        labels: issue.labels.map((label: any) => label.name),
+        assignee: issue.assignee?.login,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        closed_at: issue.closed_at,
+        html_url: issue.html_url
+      };
+    } catch (error) {
+      console.error('Failed to create issue:', error);
+      throw error;
+    }
+  }
+
+  async getRepositoryReadme(owner: string, repo: string): Promise<string> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return 'No README found for this repository.';
+        }
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const readmeData = await response.json();
+      // Decode base64 content
+      return atob(readmeData.content.replace(/\s/g, ''));
+    } catch (error) {
+      console.error('Failed to get README:', error);
+      throw error;
+    }
+  }
+
   getConnectionInfo(): MCPEndpoint | null {
     if (!this.connected || !this.githubToken) {
       return null;
@@ -347,7 +463,9 @@ export class GitHubMCPService extends MCPService {
         'file_read',
         'file_write',
         'commit_history',
-        'branch_management'
+        'branch_management',
+        'issue_management',
+        'readme_access'
       ],
       isActive: true
     };
