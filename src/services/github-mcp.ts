@@ -38,56 +38,74 @@ export interface GitHubCommit {
 }
 
 export class GitHubMCPService extends MCPService {
-  private githubEndpoint: MCPEndpoint | null = null;
+  private githubToken: string | null = null;
+  private connected: boolean = false;
 
-  async connectToGitHub(mcpServerUrl: string, token?: string): Promise<boolean> {
-    const endpoint: MCPEndpoint = {
-      id: 'github-mcp',
-      name: 'GitHub MCP Server',
-      url: mcpServerUrl,
-      type: 'api_gateway',
-      auth: token ? {
-        type: 'bearer',
-        credentials: { token }
-      } : undefined,
-      capabilities: [
-        'repository_list',
-        'file_read',
-        'file_write',
-        'commit_history',
-        'branch_management',
-        'issue_management',
-        'pull_request_management'
-      ],
-      isActive: true
-    };
-
+  async connectToGitHub(token: string): Promise<boolean> {
+    this.githubToken = token;
+    
     try {
-      this.addEndpoint(endpoint);
-      // Test connection
-      
-      await this.callEndpoint(endpoint.id, 'ping');
-      this.githubEndpoint = endpoint;
-      
-      return true;
+      // Test the token by making a simple API call to GitHub
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (response.ok) {
+        this.connected = true;
+        return true;
+      } else {
+        console.error('GitHub API authentication failed:', response.status, response.statusText);
+        this.connected = false;
+        return false;
+      }
     } catch (error) {
-      console.error('Failed to connect to GitHub MCP:', error);
+      console.error('Failed to connect to GitHub:', error);
+      this.connected = false;
       return false;
     }
   }
 
   async listRepositories(org?: string): Promise<GitHubRepository[]> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
     try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/repositories/list',
-        { org }
-      );
-      return result.repositories || [];
+      let url = 'https://api.github.com/user/repos?type=all&sort=updated&per_page=50';
+      if (org) {
+        url = `https://api.github.com/orgs/${org}/repos?sort=updated&per_page=50`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const repos = await response.json();
+      return repos.map((repo: any) => ({
+        id: repo.id,
+        name: repo.name,
+        full_name: repo.full_name,
+        description: repo.description || '',
+        html_url: repo.html_url,
+        clone_url: repo.clone_url,
+        ssh_url: repo.ssh_url,
+        default_branch: repo.default_branch,
+        private: repo.private,
+        language: repo.language || 'Unknown',
+        updated_at: repo.updated_at
+      }));
     } catch (error) {
       console.error('Failed to list repositories:', error);
       throw error;
@@ -95,17 +113,37 @@ export class GitHubMCPService extends MCPService {
   }
 
   async getRepository(owner: string, repo: string): Promise<GitHubRepository> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
     try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/repository/get',
-        { owner, repo }
-      );
-      return result.repository;
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const repoData = await response.json();
+      return {
+        id: repoData.id,
+        name: repoData.name,
+        full_name: repoData.full_name,
+        description: repoData.description || '',
+        html_url: repoData.html_url,
+        clone_url: repoData.clone_url,
+        ssh_url: repoData.ssh_url,
+        default_branch: repoData.default_branch,
+        private: repoData.private,
+        language: repoData.language || 'Unknown',
+        updated_at: repoData.updated_at
+      };
     } catch (error) {
       console.error('Failed to get repository:', error);
       throw error;
@@ -113,17 +151,43 @@ export class GitHubMCPService extends MCPService {
   }
 
   async listFiles(owner: string, repo: string, path: string = '', ref?: string): Promise<GitHubFile[]> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
     try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/contents/list',
-        { owner, repo, path, ref }
-      );
-      return result.files || [];
+      let url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      if (ref) {
+        url += `?ref=${ref}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const contents = await response.json();
+      
+      // Handle both single file and directory responses
+      const items = Array.isArray(contents) ? contents : [contents];
+      
+      return items.map((item: any) => ({
+        name: item.name,
+        path: item.path,
+        sha: item.sha,
+        size: item.size || 0,
+        url: item.url,
+        download_url: item.download_url,
+        type: item.type === 'dir' ? 'dir' : 'file',
+        content: item.content // Available if it's a file and small enough
+      }));
     } catch (error) {
       console.error('Failed to list files:', error);
       throw error;
@@ -131,23 +195,36 @@ export class GitHubMCPService extends MCPService {
   }
 
   async getFileContent(owner: string, repo: string, path: string, ref?: string): Promise<string> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
     try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/contents/get',
-        { owner, repo, path, ref }
-      );
+      let url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      if (ref) {
+        url += `?ref=${ref}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const fileData = await response.json();
       
       // Decode base64 content if needed
-      if (result.encoding === 'base64') {
-        return atob(result.content.replace(/\s/g, ''));
+      if (fileData.encoding === 'base64' && fileData.content) {
+        return atob(fileData.content.replace(/\s/g, ''));
       }
       
-      return result.content || '';
+      return fileData.content || '';
     } catch (error) {
       console.error('Failed to get file content:', error);
       throw error;
@@ -155,156 +232,92 @@ export class GitHubMCPService extends MCPService {
   }
 
   async createFile(
-    owner: string, 
-    repo: string, 
-    path: string, 
-    content: string, 
-    message: string,
-    branch?: string
+    _owner: string, 
+    _repo: string, 
+    _path: string, 
+    _content: string, 
+    _message: string,
+    _branch?: string
   ): Promise<GitHubCommit> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
-    try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/contents/create',
-        { 
-          owner, 
-          repo, 
-          path, 
-          content: btoa(content), // Base64 encode
-          message,
-          branch 
-        }
-      );
-      return result.commit;
-    } catch (error) {
-      console.error('Failed to create file:', error);
-      throw error;
-    }
+    // TODO: Implement direct GitHub API call for file creation
+    throw new Error('File creation not yet implemented in simplified GitHub integration');
   }
 
   async updateFile(
-    owner: string, 
-    repo: string, 
-    path: string, 
-    content: string, 
-    message: string,
-    sha: string,
-    branch?: string
+    _owner: string, 
+    _repo: string, 
+    _path: string, 
+    _content: string, 
+    _message: string,
+    _sha: string,
+    _branch?: string
   ): Promise<GitHubCommit> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
-    try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/contents/update',
-        { 
-          owner, 
-          repo, 
-          path, 
-          content: btoa(content), // Base64 encode
-          message,
-          sha,
-          branch 
-        }
-      );
-      return result.commit;
-    } catch (error) {
-      console.error('Failed to update file:', error);
-      throw error;
-    }
+    // TODO: Implement direct GitHub API call for file update
+    throw new Error('File update not yet implemented in simplified GitHub integration');
   }
 
   async deleteFile(
-    owner: string, 
-    repo: string, 
-    path: string, 
-    message: string,
-    sha: string,
-    branch?: string
+    _owner: string, 
+    _repo: string, 
+    _path: string, 
+    _message: string,
+    _sha: string,
+    _branch?: string
   ): Promise<GitHubCommit> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
-    try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/contents/delete',
-        { 
-          owner, 
-          repo, 
-          path, 
-          message,
-          sha,
-          branch 
-        }
-      );
-      return result.commit;
-    } catch (error) {
-      console.error('Failed to delete file:', error);
-      throw error;
-    }
+    // TODO: Implement direct GitHub API call for file deletion
+    throw new Error('File deletion not yet implemented in simplified GitHub integration');
   }
 
-  async getCommitHistory(owner: string, repo: string, path?: string, limit: number = 30): Promise<GitHubCommit[]> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+  async getCommitHistory(_owner: string, _repo: string, _path?: string, _limit: number = 30): Promise<GitHubCommit[]> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
-    try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/commits/list',
-        { owner, repo, path, per_page: limit }
-      );
-      return result.commits || [];
-    } catch (error) {
-      console.error('Failed to get commit history:', error);
-      throw error;
-    }
+    // TODO: Implement direct GitHub API call for commit history
+    throw new Error('Commit history not yet implemented in simplified GitHub integration');
   }
 
-  async createBranch(owner: string, repo: string, branchName: string, fromBranch: string = 'main'): Promise<boolean> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+  async createBranch(_owner: string, _repo: string, _branchName: string, _fromBranch: string = 'main'): Promise<boolean> {
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
-    try {
-      await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/git/refs/create',
-        { 
-          owner, 
-          repo, 
-          ref: `refs/heads/${branchName}`,
-          sha: fromBranch
-        }
-      );
-      return true;
-    } catch (error) {
-      console.error('Failed to create branch:', error);
-      throw error;
-    }
+    // TODO: Implement direct GitHub API call for branch creation
+    throw new Error('Branch creation not yet implemented in simplified GitHub integration');
   }
 
   async listBranches(owner: string, repo: string): Promise<string[]> {
-    if (!this.githubEndpoint) {
-      throw new Error('GitHub MCP not connected');
+    if (!this.connected || !this.githubToken) {
+      throw new Error('GitHub not connected. Please provide a valid token.');
     }
 
     try {
-      const result = await this.callEndpoint(
-        this.githubEndpoint.id,
-        'github/branches/list',
-        { owner, repo }
-      );
-      return result.branches?.map((b: any) => b.name) || [];
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches`, {
+        headers: {
+          'Authorization': `token ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AI-Board'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const branches = await response.json();
+      return branches.map((branch: any) => branch.name);
     } catch (error) {
       console.error('Failed to list branches:', error);
       throw error;
@@ -312,10 +325,31 @@ export class GitHubMCPService extends MCPService {
   }
 
   isConnected(): boolean {
-    return this.githubEndpoint !== null && this.githubEndpoint.isActive;
+    return this.connected && this.githubToken !== null;
   }
 
   getConnectionInfo(): MCPEndpoint | null {
-    return this.githubEndpoint;
+    if (!this.connected || !this.githubToken) {
+      return null;
+    }
+    
+    return {
+      id: 'github-integration',
+      name: 'GitHub Integration',
+      url: 'https://api.github.com',
+      type: 'api_gateway',
+      auth: {
+        type: 'bearer',
+        credentials: { token: this.githubToken }
+      },
+      capabilities: [
+        'repository_list',
+        'file_read',
+        'file_write',
+        'commit_history',
+        'branch_management'
+      ],
+      isActive: true
+    };
   }
 }

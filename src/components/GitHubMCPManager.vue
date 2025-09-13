@@ -9,35 +9,26 @@
     </div>
 
     <div v-if="!isConnected" class="connection-form">
-      <h4>Connect to GitHub MCP Server</h4>
+      <h4>Connect to GitHub</h4>
       <form @submit.prevent="connectToGitHub">
         <div class="form-group">
-          <label for="mcpServerUrl">MCP Server URL:</label>
-          <input 
-            id="mcpServerUrl"
-            v-model="connectionForm.serverUrl" 
-            type="url" 
-            required 
-            class="form-input"
-            placeholder="http://localhost:3000/mcp"
-          >
-        </div>
-        
-        <div class="form-group">
-          <label for="githubToken">GitHub Token (optional):</label>
+          <label for="githubToken">GitHub Personal Access Token:</label>
           <input 
             id="githubToken"
             v-model="connectionForm.token" 
             type="password" 
+            required
             class="form-input"
             placeholder="ghp_xxxxxxxxxxxx"
           >
           <small class="form-help">
-            Personal access token for private repositories and higher rate limits
+            <strong>Required:</strong> Personal access token with repo access for repository management.
+            <br>
+            Create one at: <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">GitHub Settings → Personal access tokens</a>
           </small>
         </div>
         
-        <button type="submit" :disabled="connecting" class="btn-connect">
+        <button type="submit" :disabled="connecting || !connectionForm.token.trim()" class="btn-connect">
           {{ connecting ? 'Connecting...' : 'Connect to GitHub' }}
         </button>
       </form>
@@ -45,14 +36,14 @@
 
     <div v-else class="connected-actions">
       <div class="connection-info">
-        <h4>Connection Details</h4>
-        <div class="info-item">
-          <span class="label">Server URL:</span>
-          <span class="value">{{ connectionInfo?.url }}</span>
-        </div>
+        <h4>GitHub Connection</h4>
         <div class="info-item">
           <span class="label">Status:</span>
-          <span class="value connected">Active</span>
+          <span class="value connected">Connected with Personal Access Token</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Token:</span>
+          <span class="value">{{ maskToken(connectionForm.token) }}</span>
         </div>
       </div>
 
@@ -133,7 +124,6 @@ const repositories = ref<GitHubRepository[]>([])
 const error = ref('')
 
 const connectionForm = reactive({
-  serverUrl: 'http://localhost:3000/mcp',
   token: ''
 })
 
@@ -145,21 +135,18 @@ async function connectToGitHub() {
   error.value = ''
   
   try {
-    const success = await githubMCP.connectToGitHub(
-      connectionForm.serverUrl,
-      connectionForm.token || undefined
-    )
+    const success = await githubMCP.connectToGitHub(connectionForm.token)
     
     if (success) {
       // Add the GitHub MCP endpoint to the agent store
       agentStore.addMCPEndpoint({
-        name: 'GitHub MCP Server',
-        url: connectionForm.serverUrl,
+        name: 'GitHub Integration',
+        url: 'https://api.github.com',
         type: 'api_gateway',
-        auth: connectionForm.token ? {
+        auth: {
           type: 'bearer',
           credentials: { token: connectionForm.token }
-        } : undefined,
+        },
         capabilities: [
           'repository_list',
           'file_read',
@@ -172,7 +159,7 @@ async function connectToGitHub() {
       
       await loadRepositories()
     } else {
-      error.value = 'Failed to connect to GitHub MCP server'
+      error.value = 'Failed to connect to GitHub. Please check your Personal Access Token.'
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Connection failed'
@@ -218,20 +205,23 @@ function syncRepository(repo: GitHubRepository) {
   console.log('Syncing repository to project:', repo.full_name)
 }
 
+function maskToken(token: string): string {
+  if (!token) return 'Not set'
+  if (token.length <= 8) return token
+  return token.substring(0, 4) + '•'.repeat(token.length - 8) + token.substring(token.length - 4)
+}
+
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString()
 }
 
 onMounted(() => {
-  // Check if there's already a GitHub MCP endpoint configured
+  // Check if there's already a GitHub endpoint configured
   const existingEndpoint = agentStore.getActiveMCPEndpoints()
     .find(endpoint => endpoint.name.includes('GitHub'))
   
-  if (existingEndpoint) {
-    connectionForm.serverUrl = existingEndpoint.url
-    if (existingEndpoint.auth?.credentials.token) {
-      connectionForm.token = existingEndpoint.auth.credentials.token
-    }
+  if (existingEndpoint && existingEndpoint.auth?.credentials.token) {
+    connectionForm.token = existingEndpoint.auth.credentials.token
   }
 })
 </script>
